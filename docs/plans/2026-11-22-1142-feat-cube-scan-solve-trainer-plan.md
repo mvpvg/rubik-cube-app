@@ -11,10 +11,10 @@ execution: code
 
 ## Goal Capsule
 
-- **Objective:** A child can point any phone browser at a scrambled 3x3 Rubik's cube, get it read in about two minutes, and either follow a short solution or learn the beginner method stage by stage on their own real cube.
-- **Means:** A static, client-only web app (KTD1) with a guided camera scan (KTD2, KTD3), a fast Kociemba solver (KTD4), and a beginner-method stage solver for teaching (KTD5).
+- **Objective:** A child can point any phone browser at a scrambled 3x3 Rubik's cube, get it read in about two minutes, and either follow a short solution or learn the beginner method stage by stage on their own real cube, then practice each stage on an on-screen cube with hints until they can do it alone.
+- **Means:** A static, client-only web app (KTD1) with a guided camera scan (KTD2, KTD3), a fast Kociemba solver (KTD4), a beginner-method stage solver for teaching (KTD5), and a button-driven practice cube with stage hints (KTD9, KTD10, KTD11).
 - **Authority:** Product Contract Requirements win on behavior. KTDs win on mechanism. Units cite, never override.
-- **Execution profile:** Greenfield repo, one PR. Built and checked by `ce-work`; the owner (a parent) reviews and pushes.
+- **Execution profile:** One PR on the existing feature branch; the practice and help units build on the scan, solve, and learn screens already there. Built and checked by `ce-work`; the owner (a parent) reviews and pushes.
 - **Stop conditions:** Stop and ask if the chosen solver libraries cannot run in iOS Safari, or if camera scanning cannot reach R6's accuracy bar after the U4 tuning pass. Do not add a server to work around either.
 
 ---
@@ -23,11 +23,13 @@ execution: code
 
 ### Summary
 
-Build one mobile-first web page, hosted free as static files. It scans the cube with the phone camera, lets the child fix any wrong color, then offers two paths: "Solve it" shows a short move list on an animated 3D cube, and "Learn it" walks through the beginner layer-by-layer method using the child's own cube state. Everything runs in the browser; no photos leave the phone.
+Build one mobile-first web page, hosted free as static files. It scans the cube with the phone camera, lets the child fix any wrong color, then offers two paths: "Solve it" shows a short move list on an animated 3D cube, and "Learn it" walks through the beginner layer-by-layer method using the child's own cube state. Everything runs in the browser; no photos leave the phone. A Practice screen adds an on-screen cube the child turns with big move buttons, a Hint that greys out everything except the next piece to move, and practice for one stage at a time. Color entry gets smart fill and clearer error help, and a Moves screen explains the move letters.
 
 ### Problem Frame
 
 The owner's son has a Rubik's cube and wants to solve it. Store apps that scan cubes exist, but most are iPhone-only or Android-only, many push in-app purchases, and few teach a method; they just print moves. Free web tools exist too (the Ruwix scanner), but they cannot be shaped into a trainer for one child. The owner wants something that works on whatever phone is at hand, that teaches rather than only solves, and that costs nothing and needs no care to keep running.
+
+A review of rubikscu.be, a free browser cube site, showed what the first version still lacks as a trainer. A child learning the method needs to practice one stage many times and needs a nudge when stuck, and the real cube alone gives neither: once it is scrambled, the child cannot set up "just stage 4" again. The site also shows that typing colors goes faster when the app fills in squares that can only be one color, and that error messages help more when they say what to check. The site has no camera scan, so the scan stays this app's own strength.
 
 ### Requirements
 
@@ -53,14 +55,27 @@ The owner's son has a Rubik's cube and wants to solve it. Store apps that scan c
 - R13. After the first visit the app works offline and can be added to the home screen.
 - R14. Camera images are processed on the device and never uploaded.
 
+**Practicing**
+- R15. A Practice screen shows a 3D cube the child turns with big on-screen move buttons (each side both ways, each labeled with its letter and words), plus Scramble, Undo, and Reset. It says "Solved!" when every side is one color.
+- R16. A Hint button finds the first unfinished beginner stage of the on-screen cube, greys out every piece except the one to move next, says what to do in one sentence, and offers "Do it for me", which plays that step's moves slowly on the cube.
+- R17. Each Learn stage has a "Practice this stage" button. It opens Practice on a fresh random cube with every earlier stage already done, and says so when the child finishes that stage.
+
+**Help**
+- R18. When the child types in or fixes colors, a square that can only be one color is filled in automatically and marked, so the child can check it.
+- R19. Every "impossible cube" message also says what to check, in one plain sentence.
+- R20. A Moves screen lists each move letter with its words and plays the move on a small 3D cube when tapped.
+- R21. A "More help" link opens an outside beginner tutorial (rubikscu.be) in a new tab, labeled as another website.
+
 ### Key Decisions
 
 - **Learn mode gives the moves one at a time, rather than asking the child to try the recipe first.** Easier for a beginner to follow. Governs R10. (session-settled: user-directed — chosen over try-first-then-show: owner preferred the simpler step-by-step flow.)
+- **Add the full trainer set from the rubikscu.be review: practice cube, hints, stage practice, smart fill, error help, Moves screen, and a More help link; the timer waits.** It turns the app from a solver into a trainer. Governs R15, R16, R17, R18, R19, R20, R21. (session-settled: user-directed — chosen over a small set without an on-screen practice cube: owner picked the full trainer set.)
 
 ### Success Criteria
 
 - From opening the link to seeing the first solution move takes under two minutes for a first-time child user, including any color fixes.
 - Every "Solve it" and every "Learn it" sequence, applied to the scanned state, ends in a solved cube (checked by test over many random cubes, not by eye).
+- Pressing Hint then "Do it for me" again and again solves any valid on-screen cube, and every stage-practice cube starts with exactly the earlier stages done (both checked over many random cubes).
 - The owner can ship a text change by editing one file and pushing, with no other step.
 
 ### Scope Boundaries
@@ -69,12 +84,16 @@ The owner's son has a Rubik's cube and wants to solve it. Store apps that scan c
 - One child, one device; no accounts, login, sync, or leaderboards.
 - No app-store app and no native wrapper.
 - Considered and not built: an AI vision service to read colors from a photo. It needs a server to hold an API key, which breaks R12, and the tap-to-fix map (R3) covers misreads cheaply. Revisit if R6 cannot be met in testing.
+- Ideas only from rubikscu.be: no code, text, images, or look copied. Its terms of use forbid copying its code or text; every feature here is written in this app's own words and its cube-plastic design.
+- Considered and not built: turning the on-screen cube by dragging a sticker, as rubikscu.be does. `cubing.js` offers tap-to-turn input but not swipe turning, so this means building touch gesture handling on the 3D view; labeled move buttons are clearer for a beginner and teach the letters. Revisit if the child finds the buttons slow.
 - Considered and not built: live AR arrows drawn on the real cube. Tracking a turning cube in the browser is fragile and costly; the 3D player (R8) gives the same guidance.
 
 #### Deferred to Follow-Up Work
 
 - Smart cube support over Bluetooth (GAN, GoCube, MoYu) via `smartcube-web-bluetooth`. It only works in Chrome on Android and desktop, not on iPhone.
-- A scramble-and-timer practice mode with personal bests.
+- A speed-cubing timer with inspection time, averages of 5 and 12, and personal bests.
+- Typing in the moves of a scramble to set up a cube.
+- Letters on the 3D cube's stickers, move sounds, a speed setting, and a share-this-cube link.
 - Faster methods after beginner (CFOP lessons).
 - 2x2 support.
 
@@ -93,6 +112,11 @@ The owner's son has a Rubik's cube and wants to solve it. Store apps that scan c
 - KTD7. **Offline and home-screen support through a web app manifest and a service worker generated at build time (`vite-plugin-pwa`).** It caches the app and solver files so the app works with no signal after the first visit (R13).
 
 - KTD8. **Visual design: "Cube plastic" (Option A).** Dark cube-plastic ground (#1C1D22, panels #2A2C33), the six sticker colors as the only bright colors, yellow (#FFD500) primary buttons with dark text, Lexend type, large rounded touch targets (44 px or more). Every sticker shows its color letter. Mockups: https://claude.ai/artifact/MBNPgpGtk2JApyHbGRVSi7 (the Option A row). (session-settled: user-directed — chosen over Option B "Coach's notebook" light graph-paper style: owner preferred it.)
+- KTD9. **The practice cube is this app's own sticker string plus big move buttons; the 3D player only draws it.** Each button applies one move to the KTD6 string with the existing move code and redraws the player from the move history as its setup sequence, so the screen and the logic can never disagree. Undo drops the last move. Reset returns to the cube's start (solved in free practice, the stage-practice cube in stage mode). Scramble, Reset, and New cube each remember the cube they replaced, so Undo can bring it back after a mis-tap. Whole-cube turns (turn left, turn right, flip over) are moves too, so the string always matches what the child sees. The player's tap-to-turn input stays off, because two ways to turn the cube would confuse a beginner; dragging to look around stays on, and a small back view shows the hidden sides so D, L, and B moves are visible.
+- KTD10. **Hint follows one stored beginner plan, re-solving only when the cube leaves it, and shows the pieces in play with a mask.** Re-solving on every tap goes in circles: checked against the real solver, only 6 of 300 cubes reached solved that way, because the corner-twist stage breaks lower layers on purpose and ties between equally cheap pieces flip back and forth. So `hint.ts` keeps the last `solveBeginner` plan and the cube after each of its sub-steps. If the cube matches the state after sub-step k, the hint is sub-step k+1, and "Stage N of 7" comes from that plan. Only a cube off the plan (other moves, Undo, a new cube) is solved again. The solver needs white on top and green in front while the cross is unfinished, so an off-frame cube first gets a whole-cube-turn hint, "Hold your cube with white on top and green facing you". Each sub-step names its `pieces` (colors of the pieces it moves). Yellow cross and yellow edges sub-steps name the top-layer pieces they change, and whole-cube-turn sub-steps name none and show the full cube. `player.ts` maps piece colors to `cubing.js` piece order and greys every other piece with mask letter `I` (grey), in the same mask format Learn uses with `D` for dimming. "Do it for me" plays the moves at a slower tempo.
+- KTD11. **A stage-practice cube is a random scramble followed by the solver's moves for every earlier stage.** That guarantees the earlier stages are done. If the target stage happens to be done already, draw again. The setup sequence is the scramble plus those moves, so showing the cube needs no extra solve.
+- KTD12. **Smart fill fills only forced squares and never overrides the child.** After each color pick, look at every corner and edge with exactly one empty square. If exactly one color makes it a real piece not already on the cube, without going over nine of that color, fill it and mark it "auto". Repeat until nothing changes. When the child changes any square, all "auto" squares are cleared and worked out again, so a fill never outlives the pick it came from. A filled square the child taps is theirs.
+- KTD13. **Each validity failure carries its own "what to check" line.** The failed result gains a `help` field next to `message`, so the wording for each failure has one owner in `validate.ts`.
 
 ### High-Level Technical Design
 
@@ -112,6 +136,21 @@ flowchart TB
   STATE --> LEARN[Beginner stage solver]
   FAST --> PLAYER[3D twisty player]
   LEARN --> STAGES[Stage cards] --> PLAYER
+```
+
+Practice and hint flow. All of it runs on the phone and reuses the Learn solver.
+
+```mermaid
+flowchart TB
+  HOME[Home: Practice] --> PRACTICE[Practice cube: string plus move history]
+  LEARN[Learn stage: Practice this stage] --> MAKE[Random scramble plus earlier stages' moves] --> PRACTICE
+  PRACTICE -->|move button| PRACTICE
+  PRACTICE -->|Hint| ONPLAN{On the stored plan?}
+  ONPLAN -->|yes| STEP
+  ONPLAN -->|no| RESOLVE[Hold check, then solve again and store plan] --> STEP[Stored plan's next sub-step: note, moves, pieces]
+  STEP --> MASK[Grey every piece not in play]
+  MASK -->|Do it for me| PRACTICE
+  PRACTICE -->|stage goal met| CHEER[Stage done or Solved]
 ```
 
 Scan sequence the child follows. The expected next-face center is shown on screen, so a wrong turn is caught at once, not at the end.
@@ -162,6 +201,14 @@ src/learn/stages.ts
 src/learn/learn-screen.ts
 src/ui/player.ts
 src/ui/move-words.ts
+src/practice/practice-state.ts
+src/practice/practice-screen.ts
+src/practice/stage-practice.ts
+src/practice/practice.css
+src/learn/hint.ts
+src/review/smart-fill.ts
+src/help/moves-screen.ts
+src/help/help.css
 src/styles.css
 tests/
 ```
@@ -313,6 +360,104 @@ tests/
   - Happy: "Rescan" returns to the Scan screen.
 - **Verification:** A child who has not solved a cube before reaches a solved cube using only Learn mode, with an adult nearby only for reading help.
 
+### U8. Practice cube with move buttons
+
+- **Goal:** The child can scramble and turn an on-screen cube with big labeled buttons, undo, reset, and see "Solved!".
+- **Requirements:** R15; KTD6, KTD9.
+- **Dependencies:** U2, U5.
+- **Files:** `src/practice/practice-state.ts`, `src/practice/practice-screen.ts`, `src/practice/practice.css`, `src/main.ts`, `src/app/home.ts`, `src/ui/player.ts`, `tests/practice/practice-state.test.ts`, `tests/practice/practice-screen.test.ts`, `tests/practice.spec.ts`.
+- **Approach:**
+  1. `practice-state.ts` holds the start setup, the move history, and the current string; it applies, undoes, and resets moves and reports solved.
+  2. Screen layout: the move counter (or the hint card, U9) and the 3D player stay pinned at the top, about 40% of the screen height, and the controls scroll beneath them, so the cube never leaves view. Controls: a 3 by 4 grid of move buttons (U, D, R, L, F, B, each both ways) showing the letter large with a short label of at most three words; a row with turn left, turn right, and flip over; then Scramble, Undo, Hint, and Reset, with Reset set apart. A "Moves" link sits in the header.
+  3. Home gets a third entry, "Practice", under "Scan my cube".
+  4. `player.ts` gains a way to show a cube from a plain setup sequence with no moves pending, and a slower tempo option for "Do it for me".
+- **Patterns to follow:** `src/solve/solve-screen.ts` for screen structure and cleanup; `src/ui/move-words.ts` for button labels.
+- **Test scenarios:**
+  - Happy: R then R' returns to the solved string and the counter shows 2.
+  - Happy: Scramble gives an unsolved cube; Reset returns it to solved.
+  - Happy: Undo after three moves equals the state after two.
+  - Happy: Undo right after Scramble or Reset brings back the cube that was replaced.
+  - Happy: a turn-left button changes which center is in front but keeps the cube solved.
+  - Integration (Playwright, build and dev): open Practice from Home, tap Scramble, tap a move button, see the counter change.
+- **Verification:** On a phone, every button turns the 3D cube the way its words say, and buttons stay 44 px or larger.
+
+### U9. Hint and "Do it for me"
+
+- **Goal:** One tap tells the child which stage they are on, what to do next, and which piece; a second tap can do it for them.
+- **Requirements:** R16; KTD10.
+- **Dependencies:** U6, U8.
+- **Files:** `src/learn/beginner-solver.ts`, `src/learn/hint.ts`, `src/ui/player.ts`, `src/practice/practice-screen.ts`, `tests/learn/hint.test.ts`, `tests/learn/beginner-solver.test.ts`, `tests/ui/piece-mask.test.ts`.
+- **Approach:**
+  1. Each solver sub-step names its `pieces`: one piece for cross edges, white corners, middle edges, and yellow corners being placed or twisted; the top-layer pieces it changes for yellow cross and yellow edges; none for whole-cube turns.
+  2. `hint.ts` follows the stored plan per KTD10 and returns the stage title, the sub-step note, its moves, and its pieces, or "Already solved".
+  3. `player.ts` builds a mask from piece colors: those pieces show, all others grey; no pieces means the full cube.
+  4. The hint card replaces the move counter above the player and shows "Stage N of 7: title", the note, the moves as chips with words, and "Do it for me".
+  5. While "Do it for me" plays, the move buttons, Undo, Scramble, and Reset are disabled and the card says "Playing". Each played move joins the history on its own, so Undo steps back one move. When it ends, the mask clears and the card says "Done! Tap Hint for the next step". Any move button closes the hint and clears the mask.
+- **Execution note:** Implement test-first; the stage goal checks are the oracle.
+- **Test scenarios:**
+  - Happy: for 1,000 random cubes, repeating hint then applying its moves reaches solved within 60 hints.
+  - Happy: the same holds when each cube first gets a random whole-cube turn; the first hint is then the hold-your-cube step.
+  - Happy: from a cube in the middle of the corner-twist stage, reached by following hints, the next hint is still a twist sub-step.
+  - Happy: after the child makes an unrelated move, the next hint solves again from the new cube.
+  - Happy: a cube with only the white cross done gets a white corners hint.
+  - Edge: a solved cube gets "Already solved".
+  - Happy: the mask for the white-green edge leaves exactly one edge shown and every other piece grey.
+  - Happy: each of the 20 corner and edge pieces maps to a different mask position.
+- **Verification:** On a phone, Hint greys the cube except the named piece, and "Do it for me" plays the step slowly.
+
+### U10. Practice one stage
+
+- **Goal:** From any Learn stage, the child can practice just that stage on fresh cubes.
+- **Requirements:** R17; KTD11.
+- **Dependencies:** U8, U9.
+- **Files:** `src/practice/stage-practice.ts`, `src/practice/practice-screen.ts`, `src/learn/learn-screen.ts`, `tests/practice/stage-practice.test.ts`, `tests/practice/practice-screen.test.ts`.
+- **Approach:**
+  1. `stage-practice.ts` makes a practice cube for a stage per KTD11.
+  2. The Practice route takes an optional stage (`#/practice/<stage>`). In stage mode the goal sentence and the stage's hold picture sit above the player, Reset returns to the stage-practice cube, and "New cube" makes another. When the stage's goal check passes, "Stage done!" shows with "New cube", "Next stage", and "Back to Learn"; it goes away if a later move breaks the stage again.
+  3. Each Learn stage card gets a "Practice this stage" button.
+- **Test scenarios:**
+  - Happy: for every stage and 200 cubes each, all earlier stages are done and the target stage is not.
+  - Happy: white cross practice is a plain scramble whose cross is not done.
+  - Happy: applying the hint moves until the stage goal holds shows "Stage done!".
+  - Happy: "Practice this stage" on the white corners card opens Practice in white corners mode.
+  - Happy: Reset in stage mode returns to the stage-practice cube, not a solved cube.
+- **Verification:** On a phone, practicing yellow cross starts with the first two layers solved.
+
+### U11. Smart fill and error help
+
+- **Goal:** Typing in or fixing colors takes fewer taps, and every error says what to check.
+- **Requirements:** R18, R19; KTD12, KTD13.
+- **Dependencies:** U2, U4.
+- **Files:** `src/review/smart-fill.ts`, `src/review/net-editor.ts`, `src/review/review.css`, `src/cube/validate.ts`, `tests/review/smart-fill.test.ts`, `tests/review/net-editor.test.ts`, `tests/cube/validate.test.ts`.
+- **Approach:**
+  1. `smart-fill.ts` takes the 54 slots (some empty) and returns newly forced squares per KTD12.
+  2. The flat map runs it after every pick in the existing tap-a-square, pick-a-color flow; auto squares get a small "auto" dot, distinct in shape from the dashed "check me" ring, and a one-line legend under the map says what the dot means.
+  3. `validate.ts` adds a `help` line to every failure; the review message shows it under the main message.
+- **Test scenarios:**
+  - Happy: blanking one square of a valid cube, then smart fill, restores that square.
+  - Edge: blanking two squares of the same corner fills nothing.
+  - Edge: smart fill never changes a square the child set.
+  - Edge: changing an earlier pick clears and recomputes the "auto" squares that depended on it.
+  - Happy: with 20 random squares blanked, everything smart fill sets matches the true cube.
+  - Happy: every validity failure in the existing tests also has a non-empty `help`.
+  - Integration: in typing mode, picking the last unknown color of a piece fills the forced neighbor and shows the "auto" mark.
+- **Verification:** Typing in a full cube by hand takes noticeably fewer taps than 48.
+
+### U12. Moves screen and More help link
+
+- **Goal:** The child can look up any move letter, and the parent can open a fuller outside tutorial.
+- **Requirements:** R20, R21.
+- **Dependencies:** U5.
+- **Files:** `src/help/moves-screen.ts`, `src/help/help.css`, `src/main.ts`, `src/app/home.ts`, `src/learn/learn-screen.ts`, `tests/help/moves-screen.test.ts`, `tests/smoke.spec.ts`.
+- **Approach:**
+  1. The Moves screen pins one small 3D cube at the top and scrolls a grouped list beneath it: face moves, then whole-cube turns, each with prime and double forms, its words, and a tap target that plays it on that cube.
+  2. Home, Learn, and Practice get a "Moves" link. Learn's "You solved it!" screen and the Home footer get "More help (another website)", opening `https://rubikscu.be/how-to-solve/` in a new tab with no referrer.
+- **Test scenarios:**
+  - Happy: the Moves screen lists all 18 face moves and 9 whole-cube turns with words.
+  - Happy: tapping R loads R on the player.
+  - Happy (Playwright): the More help link has the right address, opens in a new tab, and says it is another website.
+- **Verification:** On a phone, tapping a move plays it, and the outside link opens without leaving the app tab.
+
 ---
 
 ## Verification Contract
@@ -320,16 +465,16 @@ tests/
 | Gate | What it proves | When |
 |---|---|---|
 | `npm run test` (Vitest) | State model, validation, sampling, classification, both solvers | Every change |
-| `npm run e2e` (Playwright, Chromium with fake camera video) | Home loads, full scan reaches Review, solve renders | Every change |
+| `npm run e2e` (Playwright, Chromium with fake camera; against both the build and the dev server) | Home, scan camera, solve, practice, and the More help link work | Every change, and in the deploy workflow |
 | `npm run build` | Static bundle and service worker build | Every change, and in the deploy workflow |
-| Manual phone check | Camera, 3D player, offline, add-to-home-screen on iOS Safari and Android Chrome | Before calling U3, U5, U7 done |
+| Manual phone check | Camera, 3D player, practice buttons, hint greying, offline, add-to-home-screen on iOS Safari and Android Chrome | Before calling U3, U5, U7, U8, U9 done |
 
 ---
 
 ## Definition of Done
 
-- All requirements R1 to R14 are met and shown on a real iPhone and a real Android phone.
-- All test gates above pass; the 1,000-cube solver tests in U5 and U6 pass.
+- All requirements R1 to R21 are met and shown on a real iPhone and a real Android phone.
+- All test gates above pass; the 1,000-cube tests in U5, U6, and U9 and the stage-practice test in U10 pass.
 - The app is live on GitHub Pages from the workflow, with no server and no paid service.
 - The README tells the owner how to run, change, and deploy the app.
 - No dead-end or experimental code from abandoned approaches is left in the diff.
@@ -341,11 +486,14 @@ tests/
 | Risk | Mitigation |
 |---|---|
 | Red and orange look alike under warm light | KTD3 centers-as-reference and nine-per-color rule; "check me" marks; tap-to-fix map (R3) |
-| Child scans faces in the wrong order or orientation | Center check after each capture (U3 step 4); validation errors point at stickers (R5) |
+| Child scans faces in the wrong order or orientation | Center check after each capture (U3 step 5); validation errors point at stickers (R5) |
 | `cubing.js` experimental attributes change before its 1.0 | Pin the exact version; keep all `twisty-player` use inside `src/ui/player.ts` |
 | iOS Safari camera quirks (inline video, HTTPS only) | Inline and muted video; HTTPS from Pages; manual entry fallback |
 | Solver table build is slow on old phones | Run in a worker started at app load (KTD4); show a friendly "warming up" note if still building |
 | Beginner solver bug leaves a stage unsolved | 1,000-cube test with per-stage goal checks (U6) |
+| `cubing.js` mask letters or piece order change in an update | All mask code stays in `src/ui/player.ts`; a test checks each piece maps to one position; pin the version |
+| The More help site carries ads and cookies | The link says it is another website and opens a new tab; the parent can remove it by deleting the link on Learn's finish screen and in the Home footer |
+| First hint is slow on old phones | The beginner solver builds small white-cross tables on first use (measured about 0.2 s on a desktop, likely 0.6 to 1.2 s on a phone); call it once when Practice opens, before the first Hint tap |
 
 ---
 
@@ -362,7 +510,24 @@ tests/
 - torjusti/cube-solver: JS solver collection (Kociemba and others), a fallback if `cubejs` gives trouble. https://github.com/torjusti/cube-solver
 - poliva/smartcube-web-bluetooth and afedotov/gan-web-bluetooth: smart cube support for the deferred Bluetooth follow-up. https://github.com/poliva/smartcube-web-bluetooth
 
+**Reviewed with Playwright on 2026-11-22: rubikscu.be** (https://rubikscu.be/)
+- Free browser cube site: playable 3D cube (drag to turn), Hint that greys out all but one piece with a one-sentence tip and "Do these moves for me", a solver where colors are painted by hand (no camera), fast and "teach me" modes, per-step practice in its tutorial, smart fill, an error-message guide, a notation page, and a timer.
+- Ideas taken into R15 to R21. Its terms of use say not to copy its code or text, so nothing is copied (see Scope Boundaries).
+
 **Existing services the family can use today**
 - Ruwix web scanner: free browser camera scan and solve, with manual fix. https://ruwix.com/cube-solver/scan/
 - Store apps such as "3D Cube Solver - Solve & Play" (iPhone, free, offline). Most others carry in-app purchases.
 
+
+---
+
+## Deferred / Open Questions
+
+These are review items left for the author. They do not block implementation.
+
+### From 2026-11-22 review
+
+- **Smart fill can never run when fixing a scanned cube** — R18, the smart fill requirement (P3, feasibility, confidence 75)
+
+  After a scan every square already has a color, so smart fill (which only fills an empty square and never overrides a choice) has nothing to fill while the child fixes colors; it only helps when typing colors in. As written, the requirement promises it for fixing too.
+  Change: reword R18 to "When the child types in colors, a square that can only be one color is filled in automatically and marked, so the child can check it."
