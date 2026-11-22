@@ -1,0 +1,32 @@
+import { describe, expect, it, vi } from 'vitest';
+
+const loads: Array<{ setup: string[]; moves: string[] }> = [];
+vi.mock('../../src/ui/player', () => ({
+  CubePlayer: class {
+    el = document.createElement('div');
+    load(setup: string[], moves: string[]) { loads.push({ setup, moves }); }
+    next() {}
+    dispose() {}
+  },
+}));
+
+const { movesScreen } = await import('../../src/help/moves-screen');
+
+describe('moves screen', () => {
+  it('lists all 18 face moves and 9 whole-cube turns, each with words', () => {
+    const root = document.createElement('main');
+    movesScreen(root);
+    const rows = [...root.querySelectorAll('.move-row')];
+    expect(rows).toHaveLength(27);
+    for (const r of rows) expect(r.querySelector('span')?.textContent?.length ?? 0).toBeGreaterThan(5);
+  });
+
+  it('tapping R plays R on the cube', () => {
+    const root = document.createElement('main');
+    movesScreen(root);
+    const r = [...root.querySelectorAll<HTMLButtonElement>('.move-row')].find((b) => b.querySelector('b')?.textContent === 'R')!;
+    r.click();
+    expect(loads.at(-1)).toEqual({ setup: [], moves: ['R'] });
+    expect(r.getAttribute('aria-pressed')).toBe('true');
+  });
+});

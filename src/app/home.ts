@@ -1,5 +1,6 @@
 import { h, icon } from '../ui/dom';
 import { COLOR_HEX } from '../cube/facelets';
+import { moreHelpLink } from '../ui/more-help';
 import { go } from './router';
 
 const SIDES: Array<[string, string]> = [
@@ -30,6 +31,10 @@ export function homeScreen(root: HTMLElement): void {
         icon('camera', 26), 'Scan my cube'),
       h('button', { class: 'btn btn-ghost btn-wide', onclick: () => go('practice') }, 'Practice on a screen cube'),
       h('button', { class: 'link', onclick: () => go('review', 'manual') }, 'Type in the colors instead'),
+      h('div', { class: 'row', style: 'justify-content:center;gap:4px;flex-wrap:wrap' },
+        h('button', { class: 'link', onclick: () => go('moves') }, 'What do the move letters mean?'),
+        moreHelpLink(),
+      ),
     ),
   );
 }

@@ -1,6 +1,7 @@
 import './styles.css';
 import { register, start } from './app/router';
 import { homeScreen } from './app/home';
+import { movesScreen } from './help/moves-screen';
 import { learnScreen } from './learn/learn-screen';
 import { practiceScreen } from './practice/practice-screen';
 import { reviewScreen } from './review/net-editor';
@@ -14,6 +15,7 @@ register('review', reviewScreen);
 register('solve', solveScreen);
 register('learn', learnScreen);
 register('practice', practiceScreen);
+register('moves', movesScreen);
 
 warmUpSolver();
 start();

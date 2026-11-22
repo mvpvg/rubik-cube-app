@@ -7,6 +7,7 @@ import { solveInWorker } from '../solve/fast-solve';
 import { h, icon } from '../ui/dom';
 import { holdNote } from '../ui/hold';
 import { moveWords, prettyMove } from '../ui/move-words';
+import { moreHelpLink } from '../ui/more-help';
 import { CubePlayer, FULL_MASK } from '../ui/player';
 import { firstUnfinishedStage, solveBeginner, STAGES, type StageId, type StagePlan } from './beginner-solver';
 
@@ -75,6 +76,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
       h('div', { class: 'topbar' },
         h('button', { class: 'icon-btn', 'aria-label': 'Back to checking colors', onclick: () => go('review') }, icon('back')),
         bar,
+        h('button', { class: 'link', style: 'padding:8px', onclick: () => go('moves') }, 'Moves'),
         h('button', { class: 'icon-btn', 'aria-label': 'My cube looks different. Scan again', onclick: () => go('scan') }, icon('rescan')),
       ),
       h('div', { style: 'display:flex;flex-direction:column;gap:6px' }, stageLabel, title, goal),
@@ -112,7 +114,10 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
       hold.replaceChildren();
       card.className = 'card cheer';
       card.replaceChildren(h('div', { class: 'h1' }, 'Great job!'));
-      controls.replaceChildren(h('button', { class: 'btn btn-primary btn-wide', onclick: () => go('scan') }, icon('camera'), 'Scan a new cube'));
+      controls.replaceChildren(h('div', { style: 'display:flex;flex-direction:column;gap:8px;width:100%' },
+        h('button', { class: 'btn btn-primary btn-wide', onclick: () => go('scan') }, icon('camera'), 'Scan a new cube'),
+        moreHelpLink(),
+      ));
       return;
     }
 
