@@ -4,7 +4,8 @@
 
 .scan-camera {
   position: relative;
-  width: 100%;
+  width: min(100%, 46dvh);
+  align-self: center;
   aspect-ratio: 1 / 1;
   border-radius: 28px;
   overflow: hidden;
@@ -88,3 +89,7 @@
 .scan-problem[hidden] { display: none; }
 .scan-take { min-height: 64px; font-size: 22px; }
 .scan .btn[hidden] { display: none; }
+
+.scan { gap: 12px; }
+.scan .h1 { font-size: 26px; }
+.scan .sub { font-size: 15px; }
