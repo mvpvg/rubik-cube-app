@@ -2,7 +2,7 @@
 // stage into small sub-steps a child can follow. The white cross is built with white on top;
 // the cube is then flipped so yellow is on top for every later stage.
 
-import { applyMoves, invertMoves, parseMoves } from '../cube/facelets';
+import { FACES, applyMoves, faceOf, invertMoves, parseMoves } from '../cube/facelets';
 import {
   ALGS, CORNER_SLOTS, EDGE_SLOTS, STAGES, centerOf, colorName, sameSet, stageDone, stickerOk,
   type StageId,
@@ -14,6 +14,8 @@ export { STAGES, firstUnfinishedStage, stageDone } from './stages';
 export interface SubStep {
   note: string;
   moves: string[];
+  // The pieces this sub-step is about (see pieceName). Whole-cube turns name none.
+  pieces?: string[];
 }
 
 export interface StagePlan {
@@ -42,10 +44,27 @@ const MIDDLE_EDGES = [8, 9, 10, 11];
 // Most pieces go in with one choice each; this bound on choices in a row only catches a bug.
 const MAX_PASSES = 12;
 
+// A piece is named by its home colors as face letters (U white, R red, F green, D yellow,
+// L orange, B blue), spelled like its home slot: U or D first, then F or B, then R or L.
+// Corners: UFR UFL UBL UBR DFR DFL DBL DBR. Edges: UR UF UL UB DR DF DL DB FR FL BL BR.
+const CORNER_NAMES = ['UFR', 'UFL', 'UBL', 'UBR', 'DFR', 'DFL', 'DBL', 'DBR'];
+const EDGE_NAMES = ['UR', 'UF', 'UL', 'UB', 'DR', 'DF', 'DL', 'DB', 'FR', 'FL', 'BL', 'BR'];
+
+// The name of the piece with these colors, in any order.
+function pieceName(colors: string[]): string {
+  const [slots, names] = colors.length === 3 ? [CORNER_SLOTS, CORNER_NAMES] : [EDGE_SLOTS, EDGE_NAMES];
+  const k = slots.findIndex((slot) => sameSet(slot.map((i) => FACES[faceOf(i)]), colors));
+  if (k < 0) throw new Error(`No piece has the colors ${colors.join('')}`);
+  return names[k];
+}
+
 const apply = (state: string, moves: string | string[]) => (moves.length ? applyMoves(state, moves) : state);
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 const colorsAt = (state: string, slot: number[]) => slot.map((i) => state[i]);
 const frontColor = (state: string) => colorName(state[22]);
+const pieceAt = (state: string, slot: number[]) => pieceName(colorsAt(state, slot));
+const topEdges = (state: string) => TOP_EDGES.map((e) => pieceAt(state, EDGE_SLOTS[e]));
+const topCorners = (state: string) => TOP_CORNERS.map((c) => pieceAt(state, CORNER_SLOTS[c]));
 
 function holdText(state: string): string {
   return `${cap(colorName(state[4]))} on top, ${colorName(state[22])} facing you`;
@@ -59,10 +78,10 @@ class Steps {
   list: SubStep[] = [];
   constructor(public state: string) {}
 
-  add(note: string, moves: string[]) {
+  add(note: string, moves: string[], pieces?: string[]) {
     const real = moves.filter(Boolean);
     if (!real.length) return;
-    this.list.push({ note, moves: real });
+    this.list.push(pieces ? { note, moves: real, pieces } : { note, moves: real });
     this.state = apply(this.state, real);
   }
 
@@ -166,7 +185,8 @@ function solveWhiteCross(steps: Steps) {
       pos = pos.map((p) => EDGE_MOVE[m][p]);
     }
     const color = colorName(CROSS_COLORS[best]);
-    steps.add(`Bring the white-${color} edge to the top: white up, ${color} next to the ${color} center`, moves);
+    steps.add(`Bring the white-${color} edge to the top: white up, ${color} next to the ${color} center`, moves,
+      [pieceName(['U', CROSS_COLORS[best]])]);
   }
 }
 
@@ -224,7 +244,7 @@ function solveCheapest(steps: Steps, stage: string, done: (s: string) => boolean
   };
   const plan = best(steps.state, 0);
   if (!Number.isFinite(plan.cost)) stuck(stage);
-  for (const sub of plan.list) steps.add(sub.note, sub.moves);
+  for (const sub of plan.list) steps.add(sub.note, sub.moves, sub.pieces);
 }
 
 // ---------- White corners (yellow on top, white on the bottom). ----------
@@ -235,13 +255,14 @@ function whiteCornerOptions(s: string): Steps[] {
   if (top.length) {
     return top.map((colors) => {
       const name = colors.map(colorName).join('-');
+      const piece = [pieceName(colors)];
       const steps = new Steps(s);
       steps.turnCubeUntil((x) => sameSet(centersAt(x, CORNER_SLOTS[DFR]), colors),
         (x) => `Turn the whole cube so the ${name} corner's spot is at the bottom front right, ${frontColor(x)} facing you`);
       const up = U_TURNS.find((u) => sameSet(colorsAt(apply(steps.state, u), CORNER_SLOTS[UFR]), colors))!;
-      steps.add(`Turn the top until the ${name} corner sits right above its spot`, [up]);
+      steps.add(`Turn the top until the ${name} corner sits right above its spot`, [up], piece);
       const reps = repeatsUntil(steps.state, ALGS.cornerInsert, (x) => cornerSolved(x, DFR));
-      steps.add(`${reps.say}, until the corner drops in with white on the bottom`, reps.moves);
+      steps.add(`${reps.say}, until the corner drops in with white on the bottom`, reps.moves, piece);
       return steps;
     });
   }
@@ -249,14 +270,16 @@ function whiteCornerOptions(s: string): Steps[] {
   return BOTTOM_CORNERS.filter((c) => !cornerSolved(s, c)).map((slot) => {
     const colors = colorsAt(s, CORNER_SLOTS[slot]);
     const name = colors.map(colorName).join('-');
+    const piece = [pieceName(colors)];
     const steps = new Steps(s);
     steps.turnCubeUntil((x) => sameSet(colorsAt(x, CORNER_SLOTS[DFR]), colors),
       (x) => `Turn the whole cube so the ${name} corner is at the bottom front right, ${frontColor(x)} facing you`);
     if (sameSet(centersAt(steps.state, CORNER_SLOTS[DFR]), colors)) {
       const reps = repeatsUntil(steps.state, ALGS.cornerInsert, (x) => cornerSolved(x, DFR));
-      steps.add(`This corner is in its spot but twisted. ${reps.say}, until white is on the bottom`, reps.moves);
+      steps.add(`This corner is in its spot but twisted. ${reps.say}, until white is on the bottom`, reps.moves, piece);
     } else {
-      steps.add(`This corner is in the wrong spot. Do ${ALGS.cornerInsert} once to lift it to the top`, parseMoves(ALGS.cornerInsert));
+      steps.add(`This corner is in the wrong spot. Do ${ALGS.cornerInsert} once to lift it to the top`,
+        parseMoves(ALGS.cornerInsert), piece);
     }
     return steps;
   });
@@ -277,17 +300,18 @@ function middleEdgeOptions(s: string): Steps[] {
   if (top.length) {
     return top.map(([up, side]) => {
       const name = `${colorName(side)}-${colorName(up)}`;
+      const piece = [pieceName([up, side])];
       const steps = new Steps(s);
       steps.turnCubeUntil((x) => x[22] === side);
       const turn = U_TURNS.find((u) => {
         const x = apply(steps.state, u);
         return x[EDGE_SLOTS[UF][0]] === up && x[EDGE_SLOTS[UF][1]] === side;
       })!;
-      steps.add(`Turn the top until the ${name} edge sits above the ${colorName(side)} center`, [turn]);
+      steps.add(`Turn the top until the ${name} edge sits above the ${colorName(side)} center`, [turn], piece);
       if (steps.state[13] === up) {
-        steps.add(`The edge goes down to the right: ${ALGS.middleRight}`, parseMoves(ALGS.middleRight));
+        steps.add(`The edge goes down to the right: ${ALGS.middleRight}`, parseMoves(ALGS.middleRight), piece);
       } else {
-        steps.add(`The edge goes down to the left: ${ALGS.middleLeft}`, parseMoves(ALGS.middleLeft));
+        steps.add(`The edge goes down to the left: ${ALGS.middleLeft}`, parseMoves(ALGS.middleLeft), piece);
       }
       return steps;
     });
@@ -300,7 +324,7 @@ function middleEdgeOptions(s: string): Steps[] {
     steps.turnCubeUntil((x) => sameSet(colorsAt(x, EDGE_SLOTS[FR]), colors),
       (x) => `Turn the whole cube so the ${name} edge is at the front right, ${frontColor(x)} facing you`);
     steps.add(`This edge is stuck. Do the right-hand moves once to lift it to the top: ${ALGS.middleRight}`,
-      parseMoves(ALGS.middleRight));
+      parseMoves(ALGS.middleRight), [pieceName(colors)]);
     return steps;
   });
 }
@@ -319,16 +343,18 @@ function solveYellowCross(steps: Steps) {
     if (pass > 3) stuck('yellow cross');
     const up = yellowEdgesUp(steps.state);
     if (up.length === 4) return;
+    // The middle layer is done, so the top edges are the four yellow edges these moves change.
+    const edges = topEdges(steps.state);
     if (up.length === 0) {
-      steps.add(`You have a yellow dot. Do ${ALGS.yellowCross} to make an L`, parseMoves(ALGS.yellowCross));
+      steps.add(`You have a yellow dot. Do ${ALGS.yellowCross} to make an L`, parseMoves(ALGS.yellowCross), edges);
     } else if (yellowUp(steps.state, 3) === yellowUp(steps.state, 5) && yellowUp(steps.state, 1) === yellowUp(steps.state, 7)) {
       const turn = U_TURNS.find((u) => yellowUp(apply(steps.state, u), 3) && yellowUp(apply(steps.state, u), 5))!;
-      steps.add('You have a yellow line. Turn the top so the line goes left to right', [turn]);
-      steps.add(`Do ${ALGS.yellowCross} to finish the cross`, parseMoves(ALGS.yellowCross));
+      steps.add('You have a yellow line. Turn the top so the line goes left to right', [turn], edges);
+      steps.add(`Do ${ALGS.yellowCross} to finish the cross`, parseMoves(ALGS.yellowCross), edges);
     } else {
       const turn = U_TURNS.find((u) => yellowUp(apply(steps.state, u), 1) && yellowUp(apply(steps.state, u), 3))!;
-      steps.add('You have a yellow L. Turn the top so the L points to the back and the left', [turn]);
-      steps.add(`Do ${ALGS.yellowCross} to make a line`, parseMoves(ALGS.yellowCross));
+      steps.add('You have a yellow L. Turn the top so the L points to the back and the left', [turn], edges);
+      steps.add(`Do ${ALGS.yellowCross} to make a line`, parseMoves(ALGS.yellowCross), edges);
     }
   }
 }
@@ -343,21 +369,22 @@ function solveYellowEdges(steps: Steps) {
   for (let pass = 0; ; pass++) {
     if (pass > 4) stuck('yellow edges');
     const up = bestTopTurn(steps.state);
+    const edges = topEdges(steps.state);
     if (edgeMatches(apply(steps.state, up)).length === 4) {
-      steps.add('Turn the top until every yellow edge matches the center below it', [up]);
+      steps.add('Turn the top until every yellow edge matches the center below it', [up], edges);
       return;
     }
-    steps.add('Turn the top until two yellow edges match the centers below them', [up]);
+    steps.add('Turn the top until two yellow edges match the centers below them', [up], edges);
     const matched = edgeMatches(steps.state);
     // UF and UL are the edges the moves swap; matched edges next to each other go at the back and right.
     const adjacent = !(matched.includes(0) && matched.includes(2)) && !(matched.includes(1) && matched.includes(3));
     if (adjacent) {
       steps.turnCubeUntil((x) => sameSet(edgeMatches(x).map(String), ['0', '3']),
         () => 'Turn the whole cube so the two matching edges are at the back and on the right');
-      steps.add(`Do ${ALGS.yellowEdges} to swap the front and left edges`, parseMoves(ALGS.yellowEdges));
+      steps.add(`Do ${ALGS.yellowEdges} to swap the front and left edges`, parseMoves(ALGS.yellowEdges), edges);
     } else {
       steps.add(`The matching edges are across from each other. Do ${ALGS.yellowEdges} once, then look again`,
-        parseMoves(ALGS.yellowEdges));
+        parseMoves(ALGS.yellowEdges), edges);
     }
   }
 }
@@ -375,9 +402,12 @@ function placeYellowCorners(steps: Steps) {
       steps.turnCubeUntil((x) => cornerPlaced(x, UFR),
         () => 'Turn the whole cube so the corner already in its spot is at the top front right');
       const reps = repeatsUntil(steps.state, ALGS.cornerPlace, (x) => TOP_CORNERS.every((c) => cornerPlaced(x, c)));
-      steps.add(`Keep that corner at the front right. ${reps.say}, and every corner is in its spot`, reps.moves);
+      steps.add(`Keep that corner at the front right. ${reps.say}, and every corner is in its spot`, reps.moves,
+        [pieceAt(steps.state, CORNER_SLOTS[UFR])]);
     } else {
-      steps.add(`No yellow corner is in its spot yet. Do ${ALGS.cornerPlace} once, then look again`, parseMoves(ALGS.cornerPlace));
+      // The moves leave the front-right corner where it is and move the other three around it.
+      steps.add(`No yellow corner is in its spot yet. Do ${ALGS.cornerPlace} once, then look again`,
+        parseMoves(ALGS.cornerPlace), [pieceAt(steps.state, CORNER_SLOTS[UFR])]);
     }
   }
 }
@@ -392,12 +422,13 @@ function twistYellowCorners(steps: Steps) {
     if (twisted === undefined) {
       const finish = U_TURNS.find((u) => stageDone('yellow-corners-twist', apply(s, u)));
       if (finish === undefined) stuck('yellow corner twist');
-      steps.add('Turn the top to finish your cube!', [finish]);
+      steps.add('Turn the top to finish your cube!', [finish], [...topEdges(s), ...topCorners(s)]);
       return;
     }
-    steps.add('Turn only the top so a twisted yellow corner is at the front right', [twisted]);
+    const corner = [pieceAt(apply(s, twisted), CORNER_SLOTS[UFR])];
+    steps.add('Turn only the top so a twisted yellow corner is at the front right', [twisted], corner);
     const reps = repeatsUntil(steps.state, ALGS.cornerTwist, (x) => yellowUp(x, CORNER_SLOTS[UFR][0]));
-    steps.add(`${reps.say}, until yellow is on top. The bottom gets messy, that's OK!`, reps.moves);
+    steps.add(`${reps.say}, until yellow is on top. The bottom gets messy, that's OK!`, reps.moves, corner);
   }
 }
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import Cube from 'cubejs';
-import { SOLVED, applyMoves, invertMoves, isSolved } from '../../src/cube/facelets';
+import {
+  CORNER_SLOTS, EDGE_SLOTS, FACES, SOLVED, applyMoves, faceOf, invertMoves, isSolved, sameSet,
+} from '../../src/cube/facelets';
 import { solveBeginner, type StagePlan } from '../../src/learn/beginner-solver';
 import { STAGES, firstUnfinishedStage, stageDone, yellowCrossCase, type StageId } from '../../src/learn/stages';
 
@@ -133,4 +135,41 @@ describe('solveBeginner', () => {
     }
     console.log(`longest beginner solve: ${max} face moves (whole-cube turns not counted)`);
   }, 60_000);
+});
+
+describe('pieces named by each sub-step', () => {
+  const REAL = new Set([...CORNER_SLOTS, ...EDGE_SLOTS].map((slot) => slot.map((i) => FACES[faceOf(i)]).sort().join('')));
+  const ONE_PIECE: StageId[] = ['white-cross', 'white-corners', 'middle-layer', 'yellow-corners-place'];
+  const YELLOW_EDGES = ['DR', 'DF', 'DL', 'DB'];
+
+  it('every move sub-step names real pieces, and whole-cube turns name none', () => {
+    for (let i = 0; i < 200; i++) {
+      for (const plan of solveBeginner(Cube.random().asString())) {
+        for (const sub of plan.subSteps) {
+          if (sub.moves.every((m) => WHOLE_CUBE.test(m))) {
+            expect(sub.pieces ?? []).toEqual([]);
+            continue;
+          }
+          const pieces = sub.pieces ?? [];
+          expect(pieces.length).toBeGreaterThan(0);
+          expect(new Set(pieces).size).toBe(pieces.length);
+          for (const p of pieces) expect(REAL.has(p.split('').sort().join(''))).toBe(true);
+          if (ONE_PIECE.includes(plan.id)) expect(pieces).toHaveLength(1);
+          if (plan.id === 'yellow-cross' || plan.id === 'yellow-edges') expect(sameSet(pieces, YELLOW_EDGES)).toBe(true);
+          if (plan.id === 'yellow-corners-twist' && sub.moves.length > 1) expect(pieces).toHaveLength(1);
+        }
+      }
+    }
+  });
+
+  it('a white cross sub-step names the edge it brings home', () => {
+    const start = Cube.random().asString();
+    let state = start;
+    for (const sub of solveBeginner(start)[0].subSteps) {
+      state = applyMoves(state, sub.moves);
+      const [edge] = sub.pieces!;
+      const slot = EDGE_SLOTS.find((e) => sameSet(e.map((i) => FACES[faceOf(i)]), edge.split('')))!;
+      expect(slot.map((i) => state[i]).join('')).toBe(slot.map((i) => FACES[faceOf(i)]).join(''));
+    }
+  });
 });
