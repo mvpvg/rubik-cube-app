@@ -44,5 +44,3 @@ export function moveWords(move: string): string {
 export function prettyMove(move: string): string {
   return move.replace("'", '′');
 }
-
-export const isCubeTurn = (move: string) => /^[xyz]/.test(move);

@@ -10,6 +10,7 @@ vi.mock('../../src/ui/player', () => ({
     load() {}
     next() {}
     back() {}
+    dispose() {}
   },
 }));
 vi.mock('../../src/solve/fast-solve', () => ({ solveInWorker: () => new Promise(() => {}) }));

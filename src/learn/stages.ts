@@ -2,7 +2,9 @@
 // the child reads, how to check that goal on a cube, and the moves each stage teaches.
 // Goal checks find the white and yellow centers first, so they work however the cube is held.
 
-import { COLOR_NAME, COLOR_OF_FACE, type Face } from '../cube/facelets';
+import { COLOR_NAME, COLOR_OF_FACE, CORNER_SLOTS, EDGE_SLOTS, faceOf, sameSet, type Face } from '../cube/facelets';
+
+export { CORNER_SLOTS, EDGE_SLOTS, faceOf, sameSet };
 
 export type StageId =
   | 'white-cross'
@@ -40,26 +42,12 @@ export const ALGS = {
   cornerTwist: "R' D' R D",
 } as const;
 
-// Sticker positions of each corner and edge slot (U/D sticker first).
-// Corners: UFR UFL UBL UBR, then DFR DFL DBL DBR.
-export const CORNER_SLOTS = [
-  [8, 9, 20], [6, 18, 38], [0, 36, 47], [2, 45, 11],
-  [29, 26, 15], [27, 44, 24], [33, 53, 42], [35, 17, 51],
-];
-// Edges: UR UF UL UB, DR DF DL DB, FR FL BL BR.
-export const EDGE_SLOTS = [
-  [5, 10], [7, 19], [3, 37], [1, 46], [32, 16], [28, 25],
-  [30, 43], [34, 52], [23, 12], [21, 41], [50, 39], [48, 14],
-];
-
 const WHITE = 'U';
 const YELLOW = 'D';
 
-export const faceOf = (i: number) => Math.floor(i / 9);
 export const centerOf = (state: string, i: number) => state[faceOf(i) * 9 + 4];
 export const stickerOk = (state: string, i: number) => state[i] === centerOf(state, i);
 export const colorName = (c: string) => COLOR_NAME[COLOR_OF_FACE[c as Face]];
-export const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
 function centerFace(state: string, color: string): number {
   for (let f = 0; f < 6; f++) if (state[f * 9 + 4] === color) return f;

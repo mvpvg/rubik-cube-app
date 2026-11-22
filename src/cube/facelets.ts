@@ -19,6 +19,21 @@ export const COLOR_NAME: Record<Color, string> = {
 };
 export const CENTER_INDEX = [4, 13, 22, 31, 40, 49];
 
+// Sticker positions of each corner and edge slot, U/D sticker first.
+// Corners: UFR UFL UBL UBR, then DFR DFL DBL DBR.
+export const CORNER_SLOTS = [
+  [8, 9, 20], [6, 18, 38], [0, 36, 47], [2, 45, 11],
+  [29, 26, 15], [27, 44, 24], [33, 53, 42], [35, 17, 51],
+];
+// Edges: UR UF UL UB, DR DF DL DB, FR FL BL BR.
+export const EDGE_SLOTS = [
+  [5, 10], [7, 19], [3, 37], [1, 46], [32, 16], [28, 25],
+  [30, 43], [34, 52], [23, 12], [21, 41], [50, 39], [48, 14],
+];
+
+export const faceOf = (i: number) => Math.floor(i / 9);
+export const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
+
 type Vec = [number, number, number];
 
 // Position and outward direction of each sticker. x points right, y up, z toward the viewer.
@@ -73,8 +88,6 @@ for (const [name, { axis, layers }] of Object.entries(BASE)) {
     return to;
   });
 }
-
-export const MOVE_NAMES = Object.keys(BASE);
 
 export function parseMoves(alg: string | string[]): string[] {
   const tokens = Array.isArray(alg) ? alg : alg.trim().split(/\s+/).filter(Boolean);

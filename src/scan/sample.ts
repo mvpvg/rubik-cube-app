@@ -56,12 +56,14 @@ const RED_ORANGE_SPLIT = (NOMINAL_HUE('R') + NOMINAL_HUE('O')) / 2;
 // The nominal sticker color closest to a sample in CIELAB. Lightness counts for half, because room
 // light mostly changes how bright a sticker looks. Red and orange sit close together and a dim
 // orange loses saturation, so between those two the hue angle alone decides.
+// Lightness counts for half, because room light mostly changes how bright a sticker looks.
+export const labDist = (p: Lab, q: Lab) => (0.5 * (p[0] - q[0])) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2;
+
 export function nearestColor(rgb: RGB): Color {
   const sample = toLab(rgb);
-  const [l, a, b] = sample;
   let best = NOMINAL[0].color, bestDist = Infinity;
   for (const { color, lab } of NOMINAL) {
-    const d = (0.5 * (l - lab[0])) ** 2 + (a - lab[1]) ** 2 + (b - lab[2]) ** 2;
+    const d = labDist(sample, lab);
     if (d < bestDist) { bestDist = d; best = color; }
   }
   if (best === 'R' || best === 'O') return hueOf(sample) < RED_ORANGE_SPLIT ? 'R' : 'O';

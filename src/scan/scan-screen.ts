@@ -12,6 +12,7 @@ const rgbCss = ([r, g, b]: RGB) => `rgb(${r},${g},${b})`;
 export function scanScreen(root: HTMLElement): Cleanup {
   const flow = new ScanFlow();
   const canvas = document.createElement('canvas');
+  const previewCanvas = document.createElement('canvas');
   const video = h('video', { class: 'scan-video', playsinline: true, muted: true, autoplay: true });
   const chips = Array.from({ length: 9 }, () => h('span', { class: 'scan-chip' }));
   const grid = h('div', { class: 'scan-grid' }, ...chips.map((chip) => h('div', { class: 'scan-cell' }, chip)));
@@ -100,7 +101,8 @@ export function scanScreen(root: HTMLElement): Cleanup {
 
   // Live preview: tint each cell's chip with what the camera sees.
   const timer = window.setInterval(() => {
-    const cells = grabCells(video, canvas, 150);
+    if (document.hidden) return;
+    const cells = grabCells(video, previewCanvas, 150);
     if (cells) cells.forEach((c, i) => { chips[i].style.background = rgbCss(c); });
   }, PREVIEW_MS);
 

@@ -1,6 +1,6 @@
 import type { RGB } from '../app/session';
 import { CENTER_INDEX, COLOR_OF_FACE, FACES, type Color } from '../cube/facelets';
-import { toLab, type Lab } from './sample';
+import { labDist as dist, toLab } from './sample';
 
 export interface Classified {
   colors: Color[]; // 54, solver order
@@ -9,8 +9,6 @@ export interface Classified {
 
 // Close calls: if the best and second-best color are this near, ask the child to look.
 const CHECK_MARGIN = 0.25;
-
-const dist = (p: Lab, q: Lab) => (0.5 * (p[0] - q[0])) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2;
 
 // Each side's middle sticker never moves, so it is the reference for its color under the same light.
 // Every sticker goes to its nearest middle color, most certain first, and no color takes more than 9.

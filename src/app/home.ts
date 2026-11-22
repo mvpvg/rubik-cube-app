@@ -1,13 +1,14 @@
 import { h, icon } from '../ui/dom';
+import { COLOR_HEX } from '../cube/facelets';
 import { go } from './router';
 
 const SIDES: Array<[string, string]> = [
-  ['rotateX(90deg) translateZ(80px)', '#FFFFFF'],
-  ['translateZ(80px)', '#009E60'],
-  ['rotateY(90deg) translateZ(80px)', '#C41E3A'],
-  ['rotateY(180deg) translateZ(80px)', '#0051BA'],
-  ['rotateY(-90deg) translateZ(80px)', '#FF5800'],
-  ['rotateX(-90deg) translateZ(80px)', '#FFD500'],
+  ['rotateX(90deg) translateZ(80px)', COLOR_HEX.W],
+  ['translateZ(80px)', COLOR_HEX.G],
+  ['rotateY(90deg) translateZ(80px)', COLOR_HEX.R],
+  ['rotateY(180deg) translateZ(80px)', COLOR_HEX.B],
+  ['rotateY(-90deg) translateZ(80px)', COLOR_HEX.O],
+  ['rotateX(-90deg) translateZ(80px)', COLOR_HEX.Y],
 ];
 
 export function homeScreen(root: HTMLElement): void {

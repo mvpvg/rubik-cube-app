@@ -1,5 +1,5 @@
 import './learn.css';
-import { go } from '../app/router';
+import { go, type Cleanup } from '../app/router';
 import { session } from '../app/session';
 import { load, save } from '../app/storage';
 import { COLOR_HEX, COLOR_OF_FACE, invertMoves, type Face } from '../cube/facelets';
@@ -21,7 +21,7 @@ function flatten(plan: StagePlan): FlatMove[] {
 
 const colorAt = (state: string, i: number) => COLOR_HEX[COLOR_OF_FACE[state[i] as Face]];
 
-export function learnScreen(root: HTMLElement): void {
+export function learnScreen(root: HTMLElement): Cleanup | void {
   const scanned = session.facelets;
   if (!scanned) {
     go('home');
@@ -83,11 +83,11 @@ export function learnScreen(root: HTMLElement): void {
   }
 
   function render(): void {
-    bar.setAttribute('aria-label', `Stage ${Math.min(stage + 1, 7)} of 7`);
+    bar.setAttribute('aria-label', `Stage ${Math.min(stage + 1, STAGES.length)} of ${STAGES.length}`);
     bar.replaceChildren(...STAGES.map((_, i) => h('span', { class: i < stage ? 'done' : i === stage ? 'now' : '' })));
 
     if (stage >= plans.length) {
-      stageLabel.textContent = 'All 7 stages';
+      stageLabel.textContent = `All ${STAGES.length} stages`;
       title.textContent = 'You solved it!';
       goal.textContent = 'Every side is one color. Scramble it and try again without the app.';
       hold.replaceChildren();
@@ -99,7 +99,7 @@ export function learnScreen(root: HTMLElement): void {
 
     const plan = plans[stage];
     const flat = flatten(plan);
-    stageLabel.textContent = `Stage ${stage + 1} of 7`;
+    stageLabel.textContent = `Stage ${stage + 1} of ${STAGES.length}`;
     title.textContent = plan.title;
     goal.textContent = plan.goal;
     hold.replaceChildren(holdNote(colorAt(plan.startState, 4), colorAt(plan.startState, 22), plan.hold));
@@ -109,7 +109,7 @@ export function learnScreen(root: HTMLElement): void {
 
     if (flat.length === 0 || pos >= flat.length) {
       card.replaceChildren(
-        h('div', { class: 'h1', style: 'text-align:center;font-size:26px' }, flat.length === 0 ? (plan.note || 'Already done, nice!') : 'Stage done!'),
+        h('div', { class: 'h1', style: 'text-align:center;font-size:26px' }, flat.length === 0 ? plan.note : 'Stage done!'),
         h('p', { class: 'sub', style: 'text-align:center' }, 'Does your cube look like the one on screen?'),
       );
       card.className = 'card cheer';
@@ -161,8 +161,15 @@ export function learnScreen(root: HTMLElement): void {
   }
 
   render();
+  let stopped = false;
   solveInWorker(cube).then((solution) => {
+    if (stopped) return;
     base = invertMoves(solution);
     loadPlayer();
   }).catch(() => undefined);
+
+  return () => {
+    stopped = true;
+    player.dispose();
+  };
 }

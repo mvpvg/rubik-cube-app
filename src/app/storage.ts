@@ -15,11 +15,3 @@ export function save(key: string, value: unknown): void {
     // Progress is simply not kept.
   }
 }
-
-export function remove(key: string): void {
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    // ignore
-  }
-}

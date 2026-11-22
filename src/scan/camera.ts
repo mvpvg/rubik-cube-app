@@ -27,8 +27,8 @@ export function grabCells(video: HTMLVideoElement, canvas: HTMLCanvasElement, si
   const vw = video.videoWidth, vh = video.videoHeight;
   if (!vw || !vh) return null;
   const side = Math.min(vw, vh) * GRID_FRACTION;
-  canvas.width = size;
-  canvas.height = size;
+  if (canvas.width !== size) canvas.width = size;
+  if (canvas.height !== size) canvas.height = size;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
   ctx.drawImage(video, (vw - side) / 2, (vh - side) / 2, side, side, 0, 0, size, size);

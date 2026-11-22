@@ -1,5 +1,5 @@
 import type { Color } from '../cube/facelets';
-import { load, remove, save } from './storage';
+import { load, save } from './storage';
 
 export type RGB = [number, number, number];
 
@@ -18,9 +18,4 @@ export const session: {
 export function setCube(facelets: string): void {
   session.facelets = facelets;
   save('cube.facelets', facelets);
-}
-
-export function clearCube(): void {
-  session.facelets = null;
-  remove('cube.facelets');
 }

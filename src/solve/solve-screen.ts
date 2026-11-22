@@ -1,13 +1,13 @@
-import { go } from '../app/router';
+import { go, type Cleanup } from '../app/router';
 import { session } from '../app/session';
-import { invertMoves } from '../cube/facelets';
+import { COLOR_HEX, invertMoves } from '../cube/facelets';
 import { h, icon } from '../ui/dom';
 import { holdNote } from '../ui/hold';
 import { moveWords, prettyMove } from '../ui/move-words';
 import { CubePlayer } from '../ui/player';
 import { solveInWorker } from './fast-solve';
 
-export function solveScreen(root: HTMLElement): void {
+export function solveScreen(root: HTMLElement): Cleanup | void {
   const state = session.facelets;
   if (!state) {
     go('home');
@@ -30,7 +30,7 @@ export function solveScreen(root: HTMLElement): void {
       h('button', { class: 'icon-btn', 'aria-label': 'Scan again', onclick: () => go('scan') }, icon('rescan')),
     ),
     title,
-    holdNote('#FFFFFF', '#009E60', 'Hold your cube with white on top and green facing you'),
+    holdNote(COLOR_HEX.W, COLOR_HEX.G, 'Hold your cube with white on top and green facing you'),
     h('div', { class: 'player-box' }, player.el),
     card,
     controls,
@@ -69,14 +69,22 @@ export function solveScreen(root: HTMLElement): void {
   backBtn.addEventListener('click', () => { player.back(); update(); });
   nextBtn.addEventListener('click', () => { player.next(); update(); });
 
+  let stopped = false;
   solveInWorker(state).then((solution) => {
+    if (stopped) return;
     moves = solution;
     title.textContent = solution.length === 0 ? 'Already solved!' : `${solution.length} moves to solve it`;
     player.load(invertMoves(solution), solution);
     update();
   }).catch(() => {
+    if (stopped) return;
     title.textContent = 'Something went wrong';
     card.replaceChildren(h('p', { class: 'sub' }, 'The colors could not be solved. Go back and check them.'));
     controls.replaceChildren(h('button', { class: 'btn btn-primary btn-wide', onclick: () => go('review') }, 'Check the colors'));
   });
+
+  return () => {
+    stopped = true;
+    player.dispose();
+  };
 }

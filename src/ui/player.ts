@@ -9,6 +9,7 @@ export class CubePlayer {
   private moves: string[] = [];
   private done = 0;
   private ready: Promise<void>;
+  private disposed = false;
 
   constructor(label = '3D cube') {
     this.el = document.createElement('div');
@@ -28,6 +29,7 @@ export class CubePlayer {
         cameraLatitude: 28,
         cameraLongitude: 40,
       });
+      if (this.disposed) return;
       t.style.width = '100%';
       t.style.height = '100%';
       this.twisty = t;
@@ -42,6 +44,13 @@ export class CubePlayer {
     this.moves = moves;
     this.done = Math.max(0, Math.min(done, moves.length));
     void this.ready.then(() => this.render(false));
+  }
+
+  // Frees the WebGL view when the screen closes; phones allow only a few at once.
+  dispose(): void {
+    this.disposed = true;
+    this.twisty?.remove();
+    this.twisty = null;
   }
 
   get position(): number {

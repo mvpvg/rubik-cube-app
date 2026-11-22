@@ -1,7 +1,7 @@
 import './review.css';
 import { go } from '../app/router';
 import { session, setCube } from '../app/session';
-import { CENTER_INDEX, COLOR_HEX, COLOR_NAME, FACES, COLOR_OF_FACE, fromColors, type Color } from '../cube/facelets';
+import { CENTER_INDEX, COLOR_HEX, COLOR_NAME, FACES, COLOR_OF_FACE, faceOf, fromColors, type Color, type Face } from '../cube/facelets';
 import { validate } from '../cube/validate';
 import { classify } from '../scan/classify';
 import { h, icon } from '../ui/dom';
@@ -9,7 +9,7 @@ import { h, icon } from '../ui/dom';
 const COLORS: Color[] = ['W', 'Y', 'R', 'O', 'G', 'B'];
 const TEXT_ON: Record<Color, string> = { W: '#1C1D22', Y: '#1C1D22', O: '#1C1D22', R: '#FFFFFF', G: '#FFFFFF', B: '#FFFFFF' };
 // Where each side sits in the flat cross-shaped map: [column, row].
-const NET_SPOT: Record<string, [number, number]> = { U: [2, 1], L: [1, 2], F: [2, 2], R: [3, 2], B: [4, 2], D: [2, 3] };
+const NET_SPOT: Record<Face, [number, number]> = { U: [2, 1], L: [1, 2], F: [2, 2], R: [3, 2], B: [4, 2], D: [2, 3] };
 
 type Slot = Color | null;
 
@@ -23,7 +23,7 @@ function startingColors(param?: string): { colors: Slot[]; checkMe: Set<number> 
   if (session.samples) {
     const { colors, checkMe } = classify(session.samples);
     session.samples = null;
-    session.colors = colors;
+    session.colors = colors.slice();
     return { colors, checkMe: new Set(checkMe) };
   }
   if (session.colors) return { colors: session.colors.slice(), checkMe: new Set() };
@@ -40,7 +40,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
   let bad = new Set<number>();
 
   const firstFlagged = [...checkMe].sort((a, b) => a - b)[0];
-  if (firstFlagged !== undefined) face = Math.floor(firstFlagged / 9);
+  if (firstFlagged !== undefined) face = faceOf(firstFlagged);
 
   const net = h('div', { class: 'net' });
   const zoomTitle = h('div', { class: 'zoom-title' });
@@ -147,10 +147,9 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
     checkMe.delete(selected);
     // In typing mode, jump to the next empty square so filling in goes quickly.
     if (manual) {
-      const next = colors.findIndex((x, i) => x === null && Math.floor(i / 9) === face);
+      const next = colors.findIndex((x, i) => x === null && faceOf(i) === face);
       selected = next >= 0 ? next : null;
     } else selected = null;
-    session.colors = colors.every((x) => x !== null) ? (colors as Color[]).slice() : session.colors;
     render();
   }
 

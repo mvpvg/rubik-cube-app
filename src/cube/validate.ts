@@ -1,26 +1,15 @@
-import { CENTER_INDEX, COLOR_NAME, COLOR_OF_FACE, FACES, type Face } from './facelets';
+import { CENTER_INDEX, COLOR_NAME, COLOR_OF_FACE, CORNER_SLOTS as CORNERS, EDGE_SLOTS as EDGES, FACES, sameSet, type Face } from './facelets';
 
 export type Validation = { ok: true } | { ok: false; message: string; highlight: number[] };
 
-// Sticker positions of each corner and edge slot, U/D sticker first for corners.
-const CORNERS = [
-  [8, 9, 20], [6, 18, 38], [0, 36, 47], [2, 45, 11],
-  [29, 26, 15], [27, 44, 24], [33, 53, 42], [35, 17, 51],
-];
 const CORNER_COLORS: Face[][] = [
   ['U', 'R', 'F'], ['U', 'F', 'L'], ['U', 'L', 'B'], ['U', 'B', 'R'],
   ['D', 'F', 'R'], ['D', 'L', 'F'], ['D', 'B', 'L'], ['D', 'R', 'B'],
-];
-const EDGES = [
-  [5, 10], [7, 19], [3, 37], [1, 46], [32, 16], [28, 25],
-  [30, 43], [34, 52], [23, 12], [21, 41], [50, 39], [48, 14],
 ];
 const EDGE_COLORS: Face[][] = [
   ['U', 'R'], ['U', 'F'], ['U', 'L'], ['U', 'B'], ['D', 'R'], ['D', 'F'],
   ['D', 'L'], ['D', 'B'], ['F', 'R'], ['F', 'L'], ['B', 'L'], ['B', 'R'],
 ];
-
-const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
 function parity(perm: number[]): number {
   const seen = new Array(perm.length).fill(false);
