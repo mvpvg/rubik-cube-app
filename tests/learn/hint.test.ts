@@ -178,8 +178,9 @@ describe('hint', () => {
     const start = Cube.random().asString();
     const hinter = createHinter();
     const first = checkStep(hinter.next(start));
-    const moves = [...first.moves];
+    const expected = checkStep(hinter.next(start));
     first.moves.length = 0;
-    expect(checkStep(hinter.next(start)).moves).toEqual(moves);
+    first.pieces.length = 0;
+    expect(checkStep(hinter.next(start))).toEqual(expected);
   });
 });
