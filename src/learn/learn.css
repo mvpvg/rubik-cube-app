@@ -1,0 +1,15 @@
+.learn { gap: 12px; }
+.stage-bar { display: flex; gap: 5px; }
+.stage-bar span { flex: 1; height: 10px; border-radius: 5px; background: var(--panel-line); }
+.stage-bar span.done { background: var(--green); }
+.stage-bar span.now { background: var(--accent); }
+.learn .h1 { font-size: 32px; }
+.learn .player-box { min-height: 200px; }
+.step-note { font-size: 18px; line-height: 1.4; margin: 0; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { flex: 1 0 64px; max-width: 92px; border-radius: 16px; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; background: var(--bg); color: var(--text); }
+.chip.past { background: var(--panel-line); }
+.chip.now { background: var(--accent); color: var(--on-accent); }
+.chip b { font-size: 24px; font-weight: 800; }
+.chip small { font-size: 12px; line-height: 1.2; text-align: center; }
+.cheer { text-align: center; align-items: center; }
