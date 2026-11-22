@@ -28,6 +28,7 @@ export function homeScreen(root: HTMLElement): void {
       h('div', { class: 'home-hero' }, cube),
       h('button', { class: 'btn btn-primary btn-wide', style: 'min-height:68px;font-size:22px', onclick: () => go('scan') },
         icon('camera', 26), 'Scan my cube'),
+      h('button', { class: 'btn btn-ghost btn-wide', onclick: () => go('practice') }, 'Practice on a screen cube'),
       h('button', { class: 'link', onclick: () => go('review', 'manual') }, 'Type in the colors instead'),
     ),
   );

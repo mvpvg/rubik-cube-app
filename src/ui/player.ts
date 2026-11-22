@@ -15,8 +15,9 @@ export class CubePlayer {
   private ready: Promise<void>;
   private disposed = false;
   private mask = FULL_MASK;
+  private tempo = 1.2;
 
-  constructor(label = '3D cube') {
+  constructor(label = '3D cube', options: { backView?: boolean } = {}) {
     this.el = document.createElement('div');
     this.el.className = 'cube-player';
     this.el.setAttribute('role', 'img');
@@ -28,9 +29,9 @@ export class CubePlayer {
         controlPanel: 'none',
         background: 'none',
         hintFacelets: 'none',
-        backView: 'none',
+        backView: options.backView ? 'top-right' : 'none',
         experimentalDragInput: 'auto',
-        tempoScale: 1.2,
+        tempoScale: this.tempo,
         cameraLatitude: 28,
         cameraLongitude: 40,
       });
@@ -50,6 +51,12 @@ export class CubePlayer {
     this.moves = moves;
     this.done = Math.max(0, Math.min(done, moves.length));
     void this.ready.then(() => this.render(false));
+  }
+
+  // Slower playback for "Do it for me"; 1.2 is the normal speed.
+  setTempo(scale: number): void {
+    this.tempo = scale;
+    if (this.twisty) this.twisty.tempoScale = scale;
   }
 
   // Dims the pieces that do not matter right now.

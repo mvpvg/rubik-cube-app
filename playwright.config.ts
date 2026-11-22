@@ -8,7 +8,7 @@ export default defineConfig({
   use: devices['Pixel 7'],
   projects: [
     { name: 'build', use: { baseURL: 'http://localhost:4173' } },
-    { name: 'dev', use: { baseURL: 'http://localhost:5174' }, testMatch: /(smoke|solve)\.spec\.ts/ },
+    { name: 'dev', use: { baseURL: 'http://localhost:5174' }, testMatch: /(smoke|solve|practice)\.spec\.ts/ },
   ],
   webServer: [
     { command: 'npm run build && npx vite preview --port 4173 --strictPort', port: 4173, reuseExistingServer: true, timeout: 120000 },

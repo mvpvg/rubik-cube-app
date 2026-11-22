@@ -40,6 +40,25 @@ export function moveWords(move: string): string {
   return m.endsWith("'") ? words[1] : words[0];
 }
 
+// Two or three words that fit on a move button; the full sentence is on the Moves screen.
+const SHORT: Record<string, [string, string]> = {
+  U: ['Top left', 'Top right'],
+  D: ['Bottom right', 'Bottom left'],
+  R: ['Right up', 'Right down'],
+  L: ['Left down', 'Left up'],
+  F: ['Front turn right', 'Front turn left'],
+  B: ['Back top left', 'Back top right'],
+  y: ['Turn cube left', 'Turn cube right'],
+};
+
+export function shortMoveWords(move: string): string {
+  const m = move.replace('\u2032', "'");
+  if (m === 'z2') return 'Flip over';
+  const words = SHORT[m[0]];
+  if (!words) return moveWords(m);
+  return m.endsWith("'") ? words[1] : words[0];
+}
+
 // Notation as shown to the child: a real prime mark instead of an apostrophe.
 export function prettyMove(move: string): string {
   return move.replace("'", '′');

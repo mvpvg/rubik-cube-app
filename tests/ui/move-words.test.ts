@@ -25,3 +25,14 @@ describe('move words', () => {
     expect(prettyMove("R'")).toBe('R′');
   });
 });
+
+describe('short move words', () => {
+  it('every button move has at most three words, and opposites differ', async () => {
+    const { shortMoveWords } = await import('../../src/ui/move-words');
+    for (const b of ['U', 'D', 'R', 'L', 'F', 'B', 'y']) {
+      for (const m of [b, `${b}'`]) expect(shortMoveWords(m).split(' ').length, m).toBeLessThanOrEqual(3);
+      expect(shortMoveWords(b)).not.toBe(shortMoveWords(`${b}'`));
+    }
+    expect(shortMoveWords('z2')).toBe('Flip over');
+  });
+});
