@@ -93,3 +93,22 @@ button, .btn { font-family: var(--font); cursor: pointer; }
 @keyframes home-spin { 0%, 100% { transform: rotateX(-28deg) rotateY(-40deg); } 50% { transform: rotateX(-28deg) rotateY(-130deg); } }
 .cube-face { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; padding: 6px; background: #0C0D10; border-radius: 14px; }
 .cube-face > div { border-radius: 6px; }
+
+/* 3D player */
+.cube-player { width: 100%; height: 100%; min-height: 220px; display: flex; align-items: center; justify-content: center; }
+
+/* Hold note mini cube */
+.mini-wrap { width: 34px; height: 34px; perspective: 200px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.mini-cube { position: relative; width: 28px; height: 28px; transform-style: preserve-3d; transform: rotateX(-28deg) rotateY(-40deg); }
+.mini-face { position: absolute; inset: 0; border-radius: 5px; border: 2px solid var(--bg); }
+
+/* Move card */
+.player-box { flex: 1; min-height: 240px; display: flex; }
+.move-card { display: flex; align-items: center; gap: 16px; }
+.move-big { min-width: 76px; height: 76px; border-radius: 18px; background: var(--accent); color: var(--on-accent); font-size: 34px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 10px; }
+.move-words { font-size: 20px; font-weight: 700; line-height: 1.25; }
+.controls { display: flex; gap: 12px; }
+.controls .btn { flex: 1; }
+.controls .btn-primary { flex: 1.4; }
+.done-card { text-align: center; align-items: center; }
+.done-card .h1 { font-size: 34px; }

@@ -1,13 +1,29 @@
 import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
+import type { Plugin } from 'vite';
+
+// cubejs is old CommonJS that wraps each file in `(function(){...}).call(this)` and reads `this.Cube`.
+// Bundled as ES modules, `this` is undefined there and the solver crashes in the browser.
+// Pointing it at globalThis keeps the library unchanged otherwise.
+function cubejsThisFix(): Plugin {
+  return {
+    name: 'cubejs-this-fix',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!/node_modules[\\/]cubejs[\\/]lib[\\/]/.test(id)) return null;
+      return { code: code.replace(/\}\)\.call\(this\);/g, '}).call(globalThis);'), map: null };
+    },
+  };
+}
 
 // GitHub Pages serves the site from /<repo-name>/. Set BASE_PATH in CI; local dev uses "/".
 const base = process.env.BASE_PATH ?? '/';
 
 export default defineConfig({
   base,
-  worker: { format: 'es' },
+  worker: { format: 'es', plugins: () => [cubejsThisFix()] },
   plugins: [
+    cubejsThisFix(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg'],
