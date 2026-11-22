@@ -31,6 +31,17 @@ export const EDGE_SLOTS = [
   [30, 43], [34, 52], [23, 12], [21, 41], [50, 39], [48, 14],
 ];
 
+// Each slot's home piece as the faces it touches, read in the same order as the slot's stickers.
+// Corners go clockwise from the white or yellow sticker.
+export const CORNER_PIECES: Face[][] = [
+  ['U', 'R', 'F'], ['U', 'F', 'L'], ['U', 'L', 'B'], ['U', 'B', 'R'],
+  ['D', 'F', 'R'], ['D', 'L', 'F'], ['D', 'B', 'L'], ['D', 'R', 'B'],
+];
+export const EDGE_PIECES: Face[][] = [
+  ['U', 'R'], ['U', 'F'], ['U', 'L'], ['U', 'B'], ['D', 'R'], ['D', 'F'],
+  ['D', 'L'], ['D', 'B'], ['F', 'R'], ['F', 'L'], ['B', 'L'], ['B', 'R'],
+];
+
 export const faceOf = (i: number) => Math.floor(i / 9);
 export const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 

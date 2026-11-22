@@ -1,18 +1,7 @@
-import { CORNER_SLOTS, EDGE_SLOTS, FACE_OF_COLOR, COLOR_OF_FACE, type Color, type Face } from '../cube/facelets';
+import { CORNER_PIECES, CORNER_SLOTS, EDGE_PIECES, EDGE_SLOTS, FACE_OF_COLOR, COLOR_OF_FACE, type Color, type Face } from '../cube/facelets';
 
 type Slot = Color | null;
 export type Fill = { index: number; color: Color };
-
-// Pieces as the faces they touch. Corners are listed clockwise starting from the
-// white or yellow sticker, the same order the corner slots use.
-const CORNER_PIECES: Face[][] = [
-  ['U', 'R', 'F'], ['U', 'F', 'L'], ['U', 'L', 'B'], ['U', 'B', 'R'],
-  ['D', 'F', 'R'], ['D', 'L', 'F'], ['D', 'B', 'L'], ['D', 'R', 'B'],
-];
-const EDGE_PIECES: Face[][] = [
-  ['U', 'R'], ['U', 'F'], ['U', 'L'], ['U', 'B'], ['D', 'R'], ['D', 'F'],
-  ['D', 'L'], ['D', 'B'], ['F', 'R'], ['F', 'L'], ['B', 'L'], ['B', 'R'],
-];
 
 // Every way a piece can sit in a slot: the faces seen at each sticker position.
 function placements(piece: Face[], corner: boolean): Face[][] {

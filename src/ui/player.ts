@@ -4,6 +4,7 @@ import type { TwistyPlayer } from 'cubing/twisty';
 // pinned in one file.
 // Piece masks use cubing.js piece order: edges UF UR UB UL DF DR DB DL FR FL BR BL,
 // corners UFR URB UBL ULF DRF DFL DLB DBR, centers U L F R B D. '-' shows a piece, 'D' dims it.
+export const DEFAULT_TEMPO = 1.2;
 export const FULL_MASK = 'EDGES:------------,CORNERS:--------,CENTERS:------';
 
 export class CubePlayer {
@@ -15,7 +16,7 @@ export class CubePlayer {
   private ready: Promise<void>;
   private disposed = false;
   private mask = FULL_MASK;
-  private tempo = 1.2;
+  private tempo = DEFAULT_TEMPO;
 
   constructor(label = '3D cube', options: { backView?: boolean } = {}) {
     this.el = document.createElement('div');
@@ -53,7 +54,7 @@ export class CubePlayer {
     void this.ready.then(() => this.render(false));
   }
 
-  // Slower playback for "Do it for me"; 1.2 is the normal speed.
+  // Slower playback for "Do it for me".
   setTempo(scale: number): void {
     this.tempo = scale;
     if (this.twisty) this.twisty.tempoScale = scale;
@@ -70,6 +71,14 @@ export class CubePlayer {
     this.disposed = true;
     this.twisty?.remove();
     this.twisty = null;
+  }
+
+  // Shows `setup` and animates one more move on top of it, in a single redraw.
+  playMove(setup: string[], move: string): void {
+    this.setup = setup;
+    this.moves = [move];
+    this.done = 1;
+    void this.ready.then(() => this.render(true));
   }
 
   get position(): number {

@@ -1,15 +1,6 @@
-import { CENTER_INDEX, COLOR_NAME, COLOR_OF_FACE, CORNER_SLOTS as CORNERS, EDGE_SLOTS as EDGES, FACES, sameSet, type Face } from './facelets';
+import { CENTER_INDEX, COLOR_NAME, COLOR_OF_FACE, CORNER_PIECES as CORNER_COLORS, CORNER_SLOTS as CORNERS, EDGE_PIECES as EDGE_COLORS, EDGE_SLOTS as EDGES, FACES, sameSet, type Face } from './facelets';
 
 export type Validation = { ok: true } | { ok: false; message: string; help: string; highlight: number[] };
-
-const CORNER_COLORS: Face[][] = [
-  ['U', 'R', 'F'], ['U', 'F', 'L'], ['U', 'L', 'B'], ['U', 'B', 'R'],
-  ['D', 'F', 'R'], ['D', 'L', 'F'], ['D', 'B', 'L'], ['D', 'R', 'B'],
-];
-const EDGE_COLORS: Face[][] = [
-  ['U', 'R'], ['U', 'F'], ['U', 'L'], ['U', 'B'], ['D', 'R'], ['D', 'F'],
-  ['D', 'L'], ['D', 'B'], ['F', 'R'], ['F', 'L'], ['B', 'L'], ['B', 'R'],
-];
 
 function parity(perm: number[]): number {
   const seen = new Array(perm.length).fill(false);

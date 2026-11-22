@@ -1,6 +1,5 @@
-import { applyMoves, isSolved, SOLVED } from '../cube/facelets';
+import { applyMoves, FACES, isSolved, SOLVED } from '../cube/facelets';
 
-const FACES = ['U', 'D', 'R', 'L', 'F', 'B'];
 const SUFFIXES = ['', "'", '2'];
 
 export function randomScramble(length = 20): string[] {
@@ -14,7 +13,7 @@ export function randomScramble(length = 20): string[] {
 }
 
 type Snapshot = { start: string[]; history: string[] };
-type UndoEntry = { kind: 'move' } | { kind: 'replace'; before: Snapshot };
+type UndoEntry = { kind: 'move'; prev: string } | { kind: 'replace'; before: Snapshot; prev: string };
 
 // The on-screen practice cube: a starting setup plus the moves made since.
 // The 3D player draws it from the same moves, so screen and logic always agree.
@@ -22,9 +21,11 @@ export class PracticeCube {
   private start: string[];
   private history: string[] = [];
   private undoLog: UndoEntry[] = [];
+  private current: string;
 
   constructor(start: string[] = []) {
     this.start = start.slice();
+    this.current = applyMoves(SOLVED, this.start);
   }
 
   // Moves that take a solved cube to what is on screen now.
@@ -33,11 +34,11 @@ export class PracticeCube {
   }
 
   get state(): string {
-    return applyMoves(SOLVED, this.setup);
+    return this.current;
   }
 
   get solved(): boolean {
-    return isSolved(this.state);
+    return isSolved(this.current);
   }
 
   get moveCount(): number {
@@ -49,8 +50,9 @@ export class PracticeCube {
   }
 
   apply(move: string): void {
+    this.undoLog.push({ kind: 'move', prev: this.current });
     this.history.push(move);
-    this.undoLog.push({ kind: 'move' });
+    this.current = applyMoves(this.current, [move]);
   }
 
   undo(): void {
@@ -61,6 +63,7 @@ export class PracticeCube {
       this.start = last.before.start;
       this.history = last.before.history;
     }
+    this.current = last.prev;
   }
 
   // Back to this cube's start; Undo can bring the replaced cube back.
@@ -74,8 +77,9 @@ export class PracticeCube {
 
   // A new starting cube, such as a fresh stage-practice cube.
   replace(start: string[]): void {
-    this.undoLog.push({ kind: 'replace', before: { start: this.start, history: this.history } });
+    this.undoLog.push({ kind: 'replace', before: { start: this.start, history: this.history }, prev: this.current });
     this.start = start.slice();
     this.history = [];
+    this.current = applyMoves(SOLVED, this.start);
   }
 }

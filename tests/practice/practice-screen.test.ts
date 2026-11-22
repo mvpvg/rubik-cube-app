@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 // The 3D player needs WebGL; these tests check the screen's own behavior.
 vi.mock('../../src/ui/player', () => ({
   FULL_MASK: 'full',
+  DEFAULT_TEMPO: 1.2,
   CubePlayer: class {
     el = document.createElement('div');
     load() {}
@@ -11,6 +12,7 @@ vi.mock('../../src/ui/player', () => ({
     dispose() {}
     highlight() {}
     setTempo() {}
+    playMove() {}
   },
 }));
 

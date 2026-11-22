@@ -51,7 +51,8 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
   const zoom = h('div', { class: 'zoom' });
   const pickerLabel = h('div', { class: 'muted', style: 'text-align:center' });
   const picker = h('div', { class: 'picker' });
-  const autoLegend = h('p', { class: 'auto-legend' }, h('span', { class: 'auto-dot', 'aria-hidden': 'true' }), 'This dot means the square could only be one color, so it was filled in for you. Tap it to check.');
+  const autoDot = () => h('span', { class: 'auto-dot', 'aria-hidden': 'true' });
+  const autoLegend = h('p', { class: 'auto-legend' }, autoDot(), 'This dot means the square could only be one color, so it was filled in for you. Tap it to check.');
   const message = h('p', { class: 'note review-msg', role: 'status' });
   const help = h('p', { class: 'review-help' });
   const solveBtn = h('button', { class: 'btn btn-ghost', style: 'flex:1', onclick: () => finish('solve') }, 'Solve it');
@@ -117,7 +118,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
       }, ...Array.from({ length: 9 }, (_, k) => {
         const i = fi * 9 + k;
         const c = colors[i];
-        return h('div', { class: `net-sticker${c ? '' : ' unknown'}${bad.has(i) ? ' bad' : ''}`, style: stickerStyle(c) }, c ?? '?', ...(auto.has(i) ? [h('span', { class: 'auto-dot', 'aria-hidden': 'true' })] : []));
+        return h('div', { class: `net-sticker${c ? '' : ' unknown'}${bad.has(i) ? ' bad' : ''}`, style: stickerStyle(c) }, c ?? '?', auto.has(i) ? autoDot() : null);
       }));
     }));
 
@@ -135,7 +136,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
         class: cls, style: stickerStyle(c), disabled: center,
         'aria-label': center ? `Middle square, ${COLOR_NAME[c!]}` : `Square ${k + 1}, ${c ? COLOR_NAME[c] : 'no color yet'}${auto.has(i) ? ', filled in for you' : ''}`,
         onclick: () => { selected = i; render(); },
-      }, c ?? '?', ...(auto.has(i) ? [h('span', { class: 'auto-dot', 'aria-hidden': 'true' })] : []));
+      }, c ?? '?', auto.has(i) ? autoDot() : null);
     }));
 
     if (selected === null) {

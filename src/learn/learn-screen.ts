@@ -2,10 +2,10 @@ import './learn.css';
 import { go, type Cleanup } from '../app/router';
 import { session } from '../app/session';
 import { load, save } from '../app/storage';
-import { COLOR_HEX, COLOR_OF_FACE, invertMoves, type Face } from '../cube/facelets';
+import { invertMoves } from '../cube/facelets';
 import { solveInWorker } from '../solve/fast-solve';
 import { h, icon } from '../ui/dom';
-import { holdNote } from '../ui/hold';
+import { holdNoteFor } from '../ui/hold';
 import { moveWords, prettyMove } from '../ui/move-words';
 import { moreHelpLink } from '../ui/more-help';
 import { CubePlayer, FULL_MASK } from '../ui/player';
@@ -27,7 +27,6 @@ const STAGE_MASKS: Partial<Record<StageId, string>> = {
   'middle-layer': 'EDGES:----DDDD----,CORNERS:----DDDD,CENTERS:------',
 };
 
-const colorAt = (state: string, i: number) => COLOR_HEX[COLOR_OF_FACE[state[i] as Face]];
 
 export function learnScreen(root: HTMLElement): Cleanup | void {
   const scanned = session.facelets;
@@ -130,7 +129,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
     goal.textContent = plan.goal;
     practiceLink.hidden = false;
     practiceLink.onclick = () => go('practice', plan.id);
-    hold.replaceChildren(holdNote(colorAt(plan.startState, 4), colorAt(plan.startState, 22), plan.hold));
+    hold.replaceChildren(holdNoteFor(plan.startState, plan.hold));
     card.className = 'card';
 
     const backBtn = h('button', { class: 'btn btn-ghost', onclick: back, disabled: pos === 0 && stage === 0 }, icon('back', 20), 'Back');

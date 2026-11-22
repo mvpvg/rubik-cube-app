@@ -1,19 +1,18 @@
 import './practice.css';
 import { go, type Cleanup } from '../app/router';
-import { applyMoves, COLOR_HEX, COLOR_OF_FACE, SOLVED, type Face } from '../cube/facelets';
-import { createHinter, type Hint } from '../learn/hint';
+import { applyMoves, SOLVED } from '../cube/facelets';
+import { createHinter, type HintStep } from '../learn/hint';
 import { solveBeginner, stageDone, STAGES } from '../learn/beginner-solver';
 import { h, icon } from '../ui/dom';
-import { holdNote } from '../ui/hold';
+import { holdNoteFor } from '../ui/hold';
 import { prettyMove, shortMoveWords } from '../ui/move-words';
 import { pieceMask } from '../ui/piece-mask';
-import { CubePlayer, FULL_MASK } from '../ui/player';
+import { CubePlayer, DEFAULT_TEMPO, FULL_MASK } from '../ui/player';
 import { PracticeCube, randomScramble } from './practice-state';
 import { makeStageCube } from './stage-practice';
 
 const FACE_BUTTONS = ['U', "U'", 'R', "R'", 'F', "F'", 'L', "L'", 'D', "D'", 'B', "B'"];
 const TURN_BUTTONS = ['y', "y'", 'z2'];
-const NORMAL_TEMPO = 1.2;
 const SLOW_TEMPO = 0.6;
 const SLOW_MOVE_MS = 1300;
 
@@ -69,9 +68,7 @@ export function practiceScreen(root: HTMLElement, param?: string): Cleanup {
   function newCube(undoable: boolean): void {
     if (stage) {
       const made = makeStageCube(stage.id);
-      const start = applyMoves(SOLVED, made.setup);
-      const color = (i: number) => COLOR_HEX[COLOR_OF_FACE[start[i] as Face]];
-      holdSlot.replaceChildren(holdNote(color(4), color(22), made.hold));
+      holdSlot.replaceChildren(holdNoteFor(applyMoves(SOLVED, made.setup), made.hold));
       if (undoable) cube.replace(made.setup);
       else cube = new PracticeCube(made.setup);
     } else if (undoable) cube.scramble();
@@ -100,11 +97,14 @@ export function practiceScreen(root: HTMLElement, param?: string): Cleanup {
 
   function turn(m: string): void {
     closeHint();
+    playMove(m);
+    showStatus();
+  }
+
+  function playMove(m: string): void {
     const before = cube.setup;
     cube.apply(m);
-    player.load(before, [m], 0);
-    player.next();
-    showStatus();
+    player.playMove(before, m);
   }
 
   function redraw(): void {
@@ -131,7 +131,7 @@ export function practiceScreen(root: HTMLElement, param?: string): Cleanup {
     renderHint(hint, false);
   }
 
-  function renderHint(hint: Extract<Hint, { kind: 'step' }>, isPlaying: boolean): void {
+  function renderHint(hint: HintStep, isPlaying: boolean): void {
     status.replaceChildren(h('div', { class: 'hint-card' },
       h('strong', {}, `Stage ${hint.stageIndex + 1} of ${STAGES.length}: ${hint.title}`),
       h('span', {}, hint.note),
@@ -142,21 +142,18 @@ export function practiceScreen(root: HTMLElement, param?: string): Cleanup {
     ));
   }
 
-  async function doItForMe(hint: Extract<Hint, { kind: 'step' }>): Promise<void> {
+  async function doItForMe(hint: HintStep): Promise<void> {
     playing = true;
     controls.forEach((b) => b.setAttribute('disabled', ''));
     renderHint(hint, true);
     player.setTempo(SLOW_TEMPO);
     for (const m of hint.moves) {
       if (stopped) return;
-      const before = cube.setup;
-      cube.apply(m);
-      player.load(before, [m], 0);
-      player.next();
+      playMove(m);
       await new Promise((r) => setTimeout(r, SLOW_MOVE_MS));
     }
     if (stopped) return;
-    player.setTempo(NORMAL_TEMPO);
+    player.setTempo(DEFAULT_TEMPO);
     player.highlight(FULL_MASK);
     playing = false;
     controls.forEach((b) => b.removeAttribute('disabled'));
@@ -170,7 +167,8 @@ export function practiceScreen(root: HTMLElement, param?: string): Cleanup {
   newCube(false);
   redraw();
   // The beginner solver builds small tables on first use; do it now, not on the first Hint tap.
-  const warm = setTimeout(() => { if (!stopped) solveBeginner(applyMoves(SOLVED, randomScramble())); }, 300);
+  // A stage cube was already solved once to make it, so only free practice needs this.
+  const warm = stage ? undefined : setTimeout(() => { if (!stopped) solveBeginner(applyMoves(SOLVED, randomScramble())); }, 300);
   return () => {
     stopped = true;
     clearTimeout(warm);

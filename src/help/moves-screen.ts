@@ -5,8 +5,8 @@ import { moveWords, prettyMove } from '../ui/move-words';
 import { CubePlayer } from '../ui/player';
 
 const forms = (base: string) => [base, `${base}'`, `${base}2`];
-export const FACE_MOVES = ['U', 'D', 'R', 'L', 'F', 'B'].flatMap(forms);
-export const CUBE_TURNS = ['x', 'y', 'z'].flatMap(forms);
+const FACE_MOVES = ['U', 'D', 'R', 'L', 'F', 'B'].flatMap(forms);
+const CUBE_TURNS = ['x', 'y', 'z'].flatMap(forms);
 
 export function movesScreen(root: HTMLElement): Cleanup {
   const player = new CubePlayer('3D cube showing the move');
