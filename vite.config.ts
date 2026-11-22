@@ -22,6 +22,8 @@ const base = process.env.BASE_PATH ?? '/';
 export default defineConfig({
   base,
   worker: { format: 'es', plugins: () => [cubejsThisFix()] },
+  // Dev mode pre-bundles libraries separately, so the fix must run there too.
+  optimizeDeps: { rolldownOptions: { plugins: [cubejsThisFix()] } },
   plugins: [
     cubejsThisFix(),
     VitePWA({
