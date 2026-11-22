@@ -5,6 +5,7 @@ import { CENTER_INDEX, COLOR_HEX, COLOR_NAME, FACES, COLOR_OF_FACE, faceOf, from
 import { validate } from '../cube/validate';
 import { classify } from '../scan/classify';
 import { h, icon } from '../ui/dom';
+import { smartFill } from './smart-fill';
 
 const COLORS: Color[] = ['W', 'Y', 'R', 'O', 'G', 'B'];
 const TEXT_ON: Record<Color, string> = { W: '#1C1D22', Y: '#1C1D22', O: '#1C1D22', R: '#FFFFFF', G: '#FFFFFF', B: '#FFFFFF' };
@@ -39,6 +40,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
   let face = 2; // index into FACES; start on the green side
   let selected: number | null = null;
   let bad = new Set<number>();
+  const auto = new Set<number>();
 
   const firstFlagged = [...checkMe].sort((a, b) => a - b)[0];
   if (firstFlagged !== undefined) face = faceOf(firstFlagged);
@@ -49,7 +51,9 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
   const zoom = h('div', { class: 'zoom' });
   const pickerLabel = h('div', { class: 'muted', style: 'text-align:center' });
   const picker = h('div', { class: 'picker' });
+  const autoLegend = h('p', { class: 'auto-legend' }, h('span', { class: 'auto-dot', 'aria-hidden': 'true' }), 'This dot means the square could only be one color, so it was filled in for you. Tap it to check.');
   const message = h('p', { class: 'note review-msg', role: 'status' });
+  const help = h('p', { class: 'review-help' });
   const solveBtn = h('button', { class: 'btn btn-ghost', style: 'flex:1', onclick: () => finish('solve') }, 'Solve it');
   const learnBtn = h('button', { class: 'btn btn-primary', style: 'flex:1.3', onclick: () => finish('learn') }, 'Learn it');
 
@@ -64,8 +68,10 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
         h('p', { class: 'sub' }, manual ? 'Tap a side, then tap each square and pick its color.' : 'Tap a side to look closer. Fix any square that looks wrong.'),
       ),
       net,
+      autoLegend,
       h('div', { class: 'card' }, h('div', { class: 'zoom-head' }, zoomTitle, zoomFlags), zoom, pickerLabel, picker),
       message,
+      help,
       h('div', { class: 'spacer' }),
       h('div', { class: 'row' }, solveBtn, learnBtn),
     ),
@@ -77,6 +83,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
 
   function check(): void {
     bad = new Set();
+    help.textContent = '';
     const missing = colors.filter((c) => c === null).length;
     let ok = false;
     if (missing > 0) {
@@ -90,6 +97,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
           : 'This cube works. Pick what you want to do.';
       } else {
         message.textContent = result.message;
+        help.textContent = result.help;
         bad = new Set(result.highlight);
       }
     }
@@ -99,6 +107,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
 
   function render(): void {
     check();
+    autoLegend.hidden = auto.size === 0;
     net.replaceChildren(...FACES.map((f, fi) => {
       const [col, row] = NET_SPOT[f];
       const name = COLOR_NAME[COLOR_OF_FACE[f]];
@@ -108,7 +117,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
       }, ...Array.from({ length: 9 }, (_, k) => {
         const i = fi * 9 + k;
         const c = colors[i];
-        return h('div', { class: `net-sticker${c ? '' : ' unknown'}${bad.has(i) ? ' bad' : ''}`, style: stickerStyle(c) }, c ?? '?');
+        return h('div', { class: `net-sticker${c ? '' : ' unknown'}${bad.has(i) ? ' bad' : ''}`, style: stickerStyle(c) }, c ?? '?', ...(auto.has(i) ? [h('span', { class: 'auto-dot', 'aria-hidden': 'true' })] : []));
       }));
     }));
 
@@ -121,12 +130,12 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
       const i = face * 9 + k;
       const c = colors[i];
       const center = CENTER_INDEX.includes(i);
-      const cls = ['zoom-sticker', c ? '' : 'unknown', checkMe.has(i) ? 'check' : '', bad.has(i) ? 'bad' : '', selected === i ? 'selected' : ''].filter(Boolean).join(' ');
+      const cls = ['zoom-sticker', c ? '' : 'unknown', checkMe.has(i) ? 'check' : '', auto.has(i) ? 'auto' : '', bad.has(i) ? 'bad' : '', selected === i ? 'selected' : ''].filter(Boolean).join(' ');
       return h('button', {
         class: cls, style: stickerStyle(c), disabled: center,
-        'aria-label': center ? `Middle square, ${COLOR_NAME[c!]}` : `Square ${k + 1}, ${c ? COLOR_NAME[c] : 'no color yet'}`,
+        'aria-label': center ? `Middle square, ${COLOR_NAME[c!]}` : `Square ${k + 1}, ${c ? COLOR_NAME[c] : 'no color yet'}${auto.has(i) ? ', filled in for you' : ''}`,
         onclick: () => { selected = i; render(); },
-      }, c ?? '?');
+      }, c ?? '?', ...(auto.has(i) ? [h('span', { class: 'auto-dot', 'aria-hidden': 'true' })] : []));
     }));
 
     if (selected === null) {
@@ -144,8 +153,12 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
 
   function choose(c: Color): void {
     if (selected === null) return;
+    // Fills never outlive the pick they came from: clear them, set the pick, work them out again.
+    for (const i of auto) colors[i] = null;
+    auto.clear();
     colors[selected] = c;
     checkMe.delete(selected);
+    for (const f of smartFill(colors)) { colors[f.index] = f.color; auto.add(f.index); }
     // In typing mode, jump to the next empty square so filling in goes quickly.
     if (manual) {
       const next = colors.findIndex((x, i) => x === null && faceOf(i) === face);

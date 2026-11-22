@@ -1,6 +1,6 @@
 import { CENTER_INDEX, COLOR_NAME, COLOR_OF_FACE, CORNER_SLOTS as CORNERS, EDGE_SLOTS as EDGES, FACES, sameSet, type Face } from './facelets';
 
-export type Validation = { ok: true } | { ok: false; message: string; highlight: number[] };
+export type Validation = { ok: true } | { ok: false; message: string; help: string; highlight: number[] };
 
 const CORNER_COLORS: Face[][] = [
   ['U', 'R', 'F'], ['U', 'F', 'L'], ['U', 'L', 'B'], ['U', 'B', 'R'],
@@ -36,6 +36,9 @@ export function validate(state: string): Validation {
         message: count > 9
           ? `There are ${count} ${name} squares. A cube has 9. Find the one that is a different color.`
           : `There are only ${count} ${name} squares. A cube has 9. One of the others should be ${name}.`,
+        help: count > 9
+          ? `Look at the squares that are lit up and check which one is not really ${name}.`
+          : `Look for a square that you typed as another color but that is really ${name}.`,
         highlight,
       };
     }
@@ -43,7 +46,7 @@ export function validate(state: string): Validation {
 
   const centers = CENTER_INDEX.map((i) => s[i]);
   if (new Set(centers).size !== 6) {
-    return { ok: false, message: 'Two middle squares have the same color. Each side has its own middle color.', highlight: CENTER_INDEX };
+    return { ok: false, message: 'Two middle squares have the same color. Each side has its own middle color.', help: 'Turn the cube and look at the middle square of each side. They must be six different colors.', highlight: CENTER_INDEX };
   }
 
   const cornerPerm: number[] = [];
@@ -57,11 +60,11 @@ export function validate(state: string): Validation {
     const clockwise = [0, 1, 2].map((k) => stickers[(ori + k) % 3]).join('');
     const piece = CORNER_COLORS.findIndex((cols) => sameSet(cols, stickers) && cols.join('') === clockwise);
     if (piece < 0) {
-      return { ok: false, message: 'This corner has colors that cannot sit together on a real cube. Check these 3 squares.', highlight: CORNERS[slot] };
+      return { ok: false, message: 'This corner has colors that cannot sit together on a real cube. Check these 3 squares.', help: 'Hold the cube and look at the lit-up corner. Check each of its 3 colors again.', highlight: CORNERS[slot] };
     }
     if (cornerPerm.includes(piece)) {
       const other = cornerPerm.indexOf(piece);
-      return { ok: false, message: 'Two corners have the same colors. One of them is wrong.', highlight: [...CORNERS[other], ...CORNERS[slot]] };
+      return { ok: false, message: 'Two corners have the same colors. One of them is wrong.', help: 'A cube has only one corner with each set of 3 colors. Look at both lit-up corners and check their colors.', highlight: [...CORNERS[other], ...CORNERS[slot]] };
     }
     cornerPerm.push(piece);
     twist += ori;
@@ -75,11 +78,11 @@ export function validate(state: string): Validation {
     const stickers = EDGES[slot].map((i) => s[i]);
     const piece = EDGE_COLORS.findIndex((cols) => sameSet(cols, stickers));
     if (piece < 0) {
-      return { ok: false, message: 'This edge has colors that cannot sit together on a real cube. Check these 2 squares.', highlight: EDGES[slot] };
+      return { ok: false, message: 'This edge has colors that cannot sit together on a real cube. Check these 2 squares.', help: 'Look at the lit-up edge on the real cube and check each of its 2 colors again.', highlight: EDGES[slot] };
     }
     if (edgePerm.includes(piece)) {
       const other = edgePerm.indexOf(piece);
-      return { ok: false, message: 'Two edges have the same colors. One of them is wrong.', highlight: [...EDGES[other], ...EDGES[slot]] };
+      return { ok: false, message: 'Two edges have the same colors. One of them is wrong.', help: 'A cube has only one edge with each pair of colors. Look at both lit-up edges and check their colors.', highlight: [...EDGES[other], ...EDGES[slot]] };
     }
     edgePerm.push(piece);
     const ori = stickers[0] === EDGE_COLORS[piece][0] ? 0 : 1;
@@ -88,13 +91,13 @@ export function validate(state: string): Validation {
   }
 
   if (twist % 3 !== 0) {
-    return { ok: false, message: 'One corner looks twisted. Check the colors on the corners.', highlight: twisted };
+    return { ok: false, message: 'One corner looks twisted. Check the colors on the corners.', help: 'Look at the lit-up corners. One of them has its colors in the wrong order, so check each one against your cube.', highlight: twisted };
   }
   if (flip % 2 !== 0) {
-    return { ok: false, message: 'One edge looks flipped. Check the colors on the edges.', highlight: flipped };
+    return { ok: false, message: 'One edge looks flipped. Check the colors on the edges.', help: 'Look at the lit-up edges. One of them has its two colors the wrong way round, so check each one against your cube.', highlight: flipped };
   }
   if (parity(cornerPerm) !== parity(edgePerm)) {
-    return { ok: false, message: 'Two pieces look swapped. Check the colors again, side by side.', highlight: [] };
+    return { ok: false, message: 'Two pieces look swapped. Check the colors again, side by side.', help: 'Pick two pieces of the same kind, like two edges, and check that you typed them exactly as they are on your cube.', highlight: [] };
   }
   return { ok: true };
 }

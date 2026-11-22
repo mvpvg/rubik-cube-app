@@ -102,4 +102,31 @@ describe('validate', () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.message).toMatch(/cannot sit together/);
   });
+
+  it('every kind of failure also says what to check', () => {
+    const cases = [
+      set(SOLVED, { 9: 'U' }), // too many of one color
+      set(SOLVED, { 8: 'F', 9: 'U', 20: 'R' }), // twisted corner
+      set(SOLVED, { 7: 'F', 19: 'U' }), // flipped edge
+      set(SOLVED, { 8: 'F', 20: 'R', 9: 'U', 13: 'F', 22: 'R' }), // two middles the same
+      set(SOLVED, { 8: 'R', 9: 'F', 20: 'U' }), // corner read the wrong way round
+      set(SOLVED, { 5: 'U', 10: 'U', 7: 'R', 19: 'R' }), // duplicate edge colors
+      set(SOLVED, { 1: 'R', 46: 'U', 5: 'B', 52: 'D' }), // an edge with impossible colors
+    ];
+    let failures = 0;
+    const seen = new Set<string>();
+    for (const c of cases) {
+      const r = validate(c);
+      if (!r.ok) { failures++; seen.add(r.message); expect(r.help.trim().length).toBeGreaterThan(10); }
+    }
+    expect(failures).toBe(cases.length);
+    expect(seen.size).toBeGreaterThanOrEqual(5);
+  });
+
+  it('the swapped-pieces failure has help too', () => {
+    // Swap two edges (UF and UR) without touching anything else.
+    const r = validate(set(SOLVED, { 5: 'F', 10: 'U', 7: 'R', 19: 'U' }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.help.length).toBeGreaterThan(10);
+  });
 });

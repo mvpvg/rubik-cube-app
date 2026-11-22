@@ -88,4 +88,68 @@ describe('review screen', () => {
     expect(button(root, 'Solve it').disabled).toBe(false);
     expect(button(root, 'Learn it').disabled).toBe(false);
   });
+
+  describe('smart fill while typing', () => {
+    const SIDES: Color[] = ['W', 'R', 'G', 'Y', 'O', 'B'];
+    const type = (root: HTMLElement, index: number, color: Color) => {
+      openSide(root, SIDES[Math.floor(index / 9)]);
+      zoomSquares(root)[index % 9].click();
+      button(root, COLOR_NAME[color]).click();
+    };
+    // Corner UFR is squares 8, 9, 20; type two and the third is forced.
+    const corner = [8, 9, 20];
+
+    it('picking the last unknown color of a piece fills the neighbor and marks it auto', () => {
+      const truth = toColors(Cube.random().asString());
+      const root = mount('manual');
+      // Fill every other square so the corner is the only open piece-in-progress.
+      for (let i = 0; i < 54; i++) if (!CENTER_INDEX.includes(i) && !corner.includes(i)) type(root, i, truth[i]);
+      expect(root.querySelector('.auto-legend')?.hasAttribute('hidden')).toBe(true);
+      type(root, 8, truth[8]);
+      type(root, 9, truth[9]);
+      expect(root.querySelectorAll('.net .auto-dot')).toHaveLength(1);
+      expect(root.querySelector('.auto-legend')?.hasAttribute('hidden')).toBe(false);
+      openSide(root, 'G');
+      expect(zoomSquares(root)[2].textContent).toBe(truth[20]);
+      expect(zoomSquares(root)[2].querySelector('.auto-dot')).not.toBeNull();
+      expect(button(root, 'Solve it').disabled).toBe(false);
+    });
+
+    it('changing an earlier pick clears and recomputes the auto squares', () => {
+      const truth = toColors(Cube.random().asString());
+      const root = mount('manual');
+      for (let i = 0; i < 54; i++) if (!CENTER_INDEX.includes(i) && !corner.includes(i)) type(root, i, truth[i]);
+      type(root, 8, truth[8]);
+      type(root, 9, truth[9]);
+      expect(root.querySelectorAll('.net .auto-dot')).toHaveLength(1);
+      // Re-pick square 9 as a color that no corner can use here: the fill goes away.
+      const wrong: Color = (['W', 'Y'] as Color[]).find((c) => c !== truth[9] && c !== truth[8])!;
+      type(root, 9, wrong);
+      expect(root.querySelectorAll('.net .auto-dot')).toHaveLength(0);
+      expect(root.querySelector('.auto-legend')?.hasAttribute('hidden')).toBe(true);
+      openSide(root, 'G');
+      expect(zoomSquares(root)[2].textContent).toBe('?');
+    });
+
+    it('a filled square the child taps and picks is theirs', () => {
+      const truth = toColors(Cube.random().asString());
+      const root = mount('manual');
+      for (let i = 0; i < 54; i++) if (!CENTER_INDEX.includes(i) && !corner.includes(i)) type(root, i, truth[i]);
+      type(root, 8, truth[8]);
+      type(root, 9, truth[9]);
+      type(root, 20, truth[20]);
+      expect(root.querySelectorAll('.net .auto-dot')).toHaveLength(0);
+      expect(button(root, 'Solve it').disabled).toBe(false);
+    });
+  });
+
+  it('shows the help line under the message when the cube is impossible', () => {
+    const colors = toColors(Cube.random().asString());
+    session.colors = colors;
+    const root = mount();
+    openSide(root, 'G');
+    zoomSquares(root)[0].click();
+    button(root, colors[18] === 'B' ? 'white' : 'blue').click();
+    expect((root.querySelector('.review-help')?.textContent ?? '').length).toBeGreaterThan(10);
+  });
 });
