@@ -114,14 +114,42 @@ describe('hint', () => {
     expect(lowerLayersBroken).toBeGreaterThan(0);
   }, 30_000);
 
+  it('partway through a step, the next hint keeps going forward instead of starting over', () => {
+    let checked = 0;
+    for (let i = 0; i < 100; i++) {
+      const hinter = createHinter();
+      let state = Cube.random().asString();
+      for (let n = 0; n < 60 && !isSolved(state); n++) {
+        const hint = hinter.next(state) as HintStep;
+        if (hint.moves.length >= 2 && hint.note !== HOLD_NOTE) {
+          const part = applyMoves(state, hint.moves.slice(0, 1));
+          const again = hinter.next(part) as HintStep;
+          expect(again.stageIndex).toBeGreaterThanOrEqual(hint.stageIndex);
+          expect(again.note).not.toBe(HOLD_NOTE);
+          expect(again.moves.length).toBeGreaterThan(0);
+          // Following on from there still solves the cube.
+          expect(followHints(part, hinter)).toBeLessThanOrEqual(60);
+          checked++;
+        }
+        state = applyMoves(state, hint.moves);
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
+  });
+
   it('after an unrelated move the hint solves again from the new cube, and still finishes', () => {
     for (let i = 0; i < 200; i++) {
       const hinter = createHinter();
       const path: string[] = [];
-      followHints(Cube.random().asString(), hinter, (_, before) => path.push(before));
+      const onPlan = new Set<string>();
+      followHints(Cube.random().asString(), hinter, (step, before) => {
+        path.push(before);
+        let cube = before;
+        for (const m of step.moves) { onPlan.add(cube); cube = applyMoves(cube, [m]); }
+      });
       // Stop somewhere along the plan and make a move that leaves it.
       const state = pick(path);
-      const offPlan = FACE_MOVES.map((m) => applyMoves(state, m)).filter((s) => !path.includes(s) && !isSolved(s));
+      const offPlan = FACE_MOVES.map((m) => applyMoves(state, m)).filter((s) => !onPlan.has(s) && !isSolved(s));
       const moved = pick(offPlan);
       expect(hinter.next(moved)).toEqual(createHinter().next(moved));
       followHints(moved, hinter);

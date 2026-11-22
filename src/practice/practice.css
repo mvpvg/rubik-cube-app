@@ -23,13 +23,11 @@
 .turn-row .move-btn { flex: 1; min-height: 52px; }
 .action-row .btn { flex: 1; min-height: 52px; font-size: 16px; padding: 0 8px; }
 .action-row .reset { margin-left: 8px; }
-.hint-card { background: var(--panel); border: 2px solid var(--accent); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.hint-card { background: var(--panel); border: 2px solid var(--accent); border-radius: 18px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
 .hint-card .chips { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
-.hint-card .chip { flex: 0 0 auto; min-width: 64px; }
 .hint-card .chip { flex: 0 0 auto; min-width: 56px; border-radius: 12px; padding: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--bg); }
 .hint-card .chip b { font-size: 18px; font-weight: 800; }
 .hint-card .chip small { font-size: 11px; text-align: center; color: var(--soft); }
 .hint-card .btn { min-height: 44px; font-size: 16px; }
-.hint-card { padding: 10px 12px; gap: 6px; font-size: 15px; }
 .stage-info { display: flex; flex-direction: column; gap: 8px; }
 .practice-status { flex-wrap: wrap; }

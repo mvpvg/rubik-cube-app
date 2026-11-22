@@ -14,7 +14,9 @@ import { makeStageCube } from './stage-practice';
 const FACE_BUTTONS = ['U', "U'", 'R', "R'", 'F', "F'", 'L', "L'", 'D', "D'", 'B', "B'"];
 const TURN_BUTTONS = ['y', "y'", 'z2'];
 const SLOW_TEMPO = 0.6;
-const SLOW_MOVE_MS = 1300;
+// cubing.js plays a quarter turn in 1 s and a half turn in 1.5 s at normal speed; wait for the
+// whole slowed turn plus a short pause, or the next move cuts it off.
+const slowMoveMs = (move: string) => (move.includes('2') ? 1500 : 1000) / SLOW_TEMPO + 200;
 
 export function practiceScreen(root: HTMLElement, param?: string): Cleanup {
   const stageIndex = STAGES.findIndex((s) => s.id === param);
@@ -150,7 +152,7 @@ export function practiceScreen(root: HTMLElement, param?: string): Cleanup {
     for (const m of hint.moves) {
       if (stopped) return;
       playMove(m);
-      await new Promise((r) => setTimeout(r, SLOW_MOVE_MS));
+      await new Promise((r) => setTimeout(r, slowMoveMs(m)));
     }
     if (stopped) return;
     player.setTempo(DEFAULT_TEMPO);

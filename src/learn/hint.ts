@@ -54,10 +54,13 @@ export function createHinter(): Hinter {
   // states[k] is the cube before plan step k; the last entry is the solved cube.
   let states: string[] = [];
   let steps: HintStep[] = [];
+  // The cube partway through a step: which step, and how many of its moves are done.
+  let partway = new Map<string, { k: number; done: number }>();
 
   function solve(state: string) {
     states = [state];
     steps = [];
+    partway = new Map();
     solveBeginner(state).forEach((plan, stageIndex) => {
       for (const sub of plan.subSteps) {
         if (!sub.moves.length) continue;
@@ -65,7 +68,13 @@ export function createHinter(): Hinter {
           kind: 'step', stageIndex, stageId: plan.id, title: plan.title,
           note: sub.note, moves: sub.moves, pieces: sub.pieces ?? [],
         });
-        states.push(applyMoves(states[states.length - 1], sub.moves));
+        let cube = states[states.length - 1];
+        sub.moves.forEach((move, done) => {
+          // A cube reached again later in the plan keeps the later spot, so the hint goes furthest.
+          if (done > 0) partway.set(cube, { k: steps.length - 1, done });
+          cube = applyMoves(cube, [move]);
+        });
+        states.push(cube);
       }
     });
   }
@@ -75,6 +84,12 @@ export function createHinter(): Hinter {
       if (isSolved(state)) return { kind: 'solved' };
       // The latest match, in case the plan passes through the same cube twice.
       const k = states.lastIndexOf(state);
+      const mid = partway.get(state);
+      // The same cube can sit at a step's start and partway through a later step; take the later spot.
+      if (mid && mid.k >= k) {
+        const step = copy(steps[mid.k]);
+        return { ...step, moves: step.moves.slice(mid.done) };
+      }
       if (k >= 0 && k < steps.length) return copy(steps[k]);
       if (needsHold(state)) {
         const stageIndex = STAGES.findIndex((s) => s.id === firstUnfinishedStage(state));

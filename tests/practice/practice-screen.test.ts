@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 // The 3D player needs WebGL; these tests check the screen's own behavior.
+const calls = vi.hoisted(() => ({ playMove: [] as string[], highlight: [] as string[] }));
+
 vi.mock('../../src/ui/player', () => ({
   FULL_MASK: 'full',
   DEFAULT_TEMPO: 1.2,
@@ -10,9 +12,9 @@ vi.mock('../../src/ui/player', () => ({
     next() {}
     back() {}
     dispose() {}
-    highlight() {}
+    highlight(mask = 'full') { calls.highlight.push(mask); }
     setTempo() {}
-    playMove() {}
+    playMove(_setup: string[], move: string) { calls.playMove.push(move); }
   },
 }));
 
@@ -72,11 +74,17 @@ describe('practice screen: hints and stage mode', () => {
     const button = (t: string) => [...root.querySelectorAll('button')].find((b) => b.textContent === t)!;
     button('Scramble').click();
     button('Hint').click();
+    const hintMoves = [...root.querySelectorAll('.hint-card .chip b')].length;
+    expect(calls.highlight.at(-1)).not.toBe('full');
+    calls.playMove.length = 0;
     button('Do it for me').click();
     expect(button('Undo').disabled).toBe(true);
     expect(root.querySelector('.hint-card')?.textContent).toMatch(/Playing/);
     await vi.runAllTimersAsync();
     expect(button('Undo').disabled).toBe(false);
+    expect(calls.playMove).toHaveLength(hintMoves);
+    expect(calls.highlight.at(-1)).toBe('full');
+    expect(root.querySelector('.practice-status')?.textContent).toMatch(/Done! Tap Hint|Solved|Stage done/);
     vi.useRealTimers();
   });
 
