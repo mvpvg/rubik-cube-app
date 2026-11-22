@@ -28,9 +28,9 @@ function median(values: number[]): number {
   return values[Math.floor(values.length / 2)];
 }
 
-type Lab = [number, number, number];
+export type Lab = [number, number, number];
 
-function toLab([r, g, b]: RGB): Lab {
+export function toLab([r, g, b]: RGB): Lab {
   const lin = (v: number) => {
     const c = v / 255;
     return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
