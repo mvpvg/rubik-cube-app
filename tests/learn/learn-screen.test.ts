@@ -82,6 +82,12 @@ describe('learn screen', () => {
     expect(buttonNamed(root, 'Check the colors')).toBeDefined();
   });
 
+  it('Practice this stage opens Practice for the current stage', () => {
+    const root = mount();
+    buttonNamed(root, 'Practice this stage')!.click();
+    expect(location.hash).toBe('#/practice/white-cross');
+  });
+
   it('a new scramble replaces the saved progress', () => {
     finishStage(mount());
     let other: string;

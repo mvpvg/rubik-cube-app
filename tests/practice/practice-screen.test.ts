@@ -50,3 +50,42 @@ describe('practice screen', () => {
     expect(undo.disabled).toBe(false);
   });
 });
+
+describe('practice screen: hints and stage mode', () => {
+  it('Hint shows the stage and a Do it for me button on a scrambled cube', () => {
+    const root = document.createElement('main');
+    document.body.replaceChildren(root);
+    practiceScreen(root);
+    [...root.querySelectorAll('button')].find((b) => b.textContent === 'Scramble')!.click();
+    [...root.querySelectorAll('button')].find((b) => b.textContent === 'Hint')!.click();
+    expect(root.querySelector('.hint-card')?.textContent).toMatch(/Stage \d of 7/);
+    expect([...root.querySelectorAll('button')].some((b) => b.textContent === 'Do it for me')).toBe(true);
+  });
+
+  it('Do it for me locks the buttons while it plays, then unlocks them', async () => {
+    vi.useFakeTimers();
+    const root = document.createElement('main');
+    document.body.replaceChildren(root);
+    practiceScreen(root);
+    const button = (t: string) => [...root.querySelectorAll('button')].find((b) => b.textContent === t)!;
+    button('Scramble').click();
+    button('Hint').click();
+    button('Do it for me').click();
+    expect(button('Undo').disabled).toBe(true);
+    expect(root.querySelector('.hint-card')?.textContent).toMatch(/Playing/);
+    await vi.runAllTimersAsync();
+    expect(button('Undo').disabled).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('Practice this stage opens a stage cube, and Reset goes back to it', () => {
+    const root = document.createElement('main');
+    document.body.replaceChildren(root);
+    practiceScreen(root, 'white-corners');
+    expect(root.querySelector('h1')?.textContent).toBe('Practice: White corners');
+    const button = (t: string) => [...root.querySelectorAll('button')].find((b) => b.textContent === t || b.getAttribute('aria-label')?.startsWith(t))!;
+    button('U:').click();
+    button('Reset').click();
+    expect(root.querySelector('.practice-status')?.textContent).toMatch(/0 moves/);
+  });
+});

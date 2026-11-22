@@ -66,6 +66,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
   const stageLabel = h('div', { class: 'muted' });
   const title = h('h1', {});
   const goal = h('p', { class: 'sub' });
+  const practiceLink = h('button', { class: 'link', style: 'align-self:flex-start;padding:4px 0' }, 'Practice this stage');
   const hold = h('div', {});
   const player = new CubePlayer('3D cube showing this stage');
   const card = h('div', { class: 'card' });
@@ -79,7 +80,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
         h('button', { class: 'link', style: 'padding:8px', onclick: () => go('moves') }, 'Moves'),
         h('button', { class: 'icon-btn', 'aria-label': 'My cube looks different. Scan again', onclick: () => go('scan') }, icon('rescan')),
       ),
-      h('div', { style: 'display:flex;flex-direction:column;gap:6px' }, stageLabel, title, goal),
+      h('div', { style: 'display:flex;flex-direction:column;gap:6px' }, stageLabel, title, goal, practiceLink),
       hold,
       h('div', { class: 'player-box' }, player.el),
       card,
@@ -112,6 +113,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
       title.textContent = 'You solved it!';
       goal.textContent = 'Every side is one color. Scramble it and try again without the app.';
       hold.replaceChildren();
+      practiceLink.hidden = true;
       card.className = 'card cheer';
       card.replaceChildren(h('div', { class: 'h1' }, 'Great job!'));
       controls.replaceChildren(h('div', { style: 'display:flex;flex-direction:column;gap:8px;width:100%' },
@@ -126,6 +128,8 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
     stageLabel.textContent = `Stage ${stage + 1} of ${STAGES.length}`;
     title.textContent = plan.title;
     goal.textContent = plan.goal;
+    practiceLink.hidden = false;
+    practiceLink.onclick = () => go('practice', plan.id);
     hold.replaceChildren(holdNote(colorAt(plan.startState, 4), colorAt(plan.startState, 22), plan.hold));
     card.className = 'card';
 

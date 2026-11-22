@@ -1,54 +1,105 @@
 import './practice.css';
 import { go, type Cleanup } from '../app/router';
+import { applyMoves, COLOR_HEX, COLOR_OF_FACE, SOLVED, type Face } from '../cube/facelets';
+import { createHinter, type Hint } from '../learn/hint';
+import { solveBeginner, stageDone, STAGES } from '../learn/beginner-solver';
 import { h, icon } from '../ui/dom';
+import { holdNote } from '../ui/hold';
 import { prettyMove, shortMoveWords } from '../ui/move-words';
-import { CubePlayer } from '../ui/player';
-import { PracticeCube } from './practice-state';
+import { pieceMask } from '../ui/piece-mask';
+import { CubePlayer, FULL_MASK } from '../ui/player';
+import { PracticeCube, randomScramble } from './practice-state';
+import { makeStageCube } from './stage-practice';
 
 const FACE_BUTTONS = ['U', "U'", 'R', "R'", 'F', "F'", 'L', "L'", 'D', "D'", 'B', "B'"];
 const TURN_BUTTONS = ['y', "y'", 'z2'];
+const NORMAL_TEMPO = 1.2;
+const SLOW_TEMPO = 0.6;
+const SLOW_MOVE_MS = 1300;
 
-export function practiceScreen(root: HTMLElement): Cleanup {
-  const cube = new PracticeCube();
+export function practiceScreen(root: HTMLElement, param?: string): Cleanup {
+  const stageIndex = STAGES.findIndex((s) => s.id === param);
+  const stage = stageIndex >= 0 ? STAGES[stageIndex] : null;
+  const hinter = createHinter();
   const player = new CubePlayer('3D practice cube', { backView: true });
   const status = h('div', { class: 'practice-status', 'aria-live': 'polite' });
+  const holdSlot = h('div', {});
+  let cube: PracticeCube;
+  let playing = false;
+  let stopped = false;
+  let hintOpen = false;
 
-  const moveButton = (m: string) => h('button', {
-    class: 'move-btn', 'aria-label': `${prettyMove(m)}: ${shortMoveWords(m)}`, onclick: () => turn(m),
-  }, h('b', {}, m === 'z2' ? '↻' : prettyMove(m)), h('small', {}, shortMoveWords(m)));
+  const controls: HTMLButtonElement[] = [];
+  const moveButton = (m: string) => {
+    const b = h('button', { class: 'move-btn', 'aria-label': `${prettyMove(m)}: ${shortMoveWords(m)}`, onclick: () => turn(m) },
+      h('b', {}, m === 'z2' ? '↻' : prettyMove(m)), h('small', {}, shortMoveWords(m)));
+    controls.push(b);
+    return b;
+  };
+  const action = (label: string, cls: string, run: () => void) => {
+    const b = h('button', { class: `btn ${cls}`, onclick: () => { closeHint(); run(); redraw(); } }, label);
+    controls.push(b);
+    return b;
+  };
 
-  const undoBtn = h('button', { class: 'btn btn-ghost', onclick: () => { cube.undo(); redraw(); } }, 'Undo');
+  const undoBtn = action('Undo', 'btn-ghost', () => cube.undo());
+  const newBtn = action(stage ? 'New cube' : 'Scramble', 'btn-primary', () => newCube(true));
+  const resetBtn = action('Reset', 'btn-ghost reset', () => cube.reset());
+  const hintBtn = h('button', { class: 'btn btn-ghost', onclick: showHint }, 'Hint');
+  controls.push(hintBtn);
+
   root.append(
     h('section', { class: 'screen practice' },
       h('div', { class: 'practice-top' },
         h('div', { class: 'topbar' },
-          h('button', { class: 'icon-btn', 'aria-label': 'Back to home', onclick: () => go('home') }, icon('back')),
-          h('h1', { style: 'font-size:24px' }, 'Practice'),
+          h('button', { class: 'icon-btn', 'aria-label': stage ? 'Back to Learn' : 'Back to home', onclick: () => go(stage ? 'learn' : 'home') }, icon('back')),
+          h('h1', { style: 'font-size:22px;text-align:center' }, stage ? `Practice: ${stage.title}` : 'Practice'),
           h('button', { class: 'link', style: 'padding:8px', onclick: () => go('moves') }, 'Moves'),
         ),
         status,
         h('div', { class: 'player-box' }, player.el),
       ),
+      stage ? h('div', { class: 'stage-info' }, h('p', { class: 'sub', style: 'margin:0;font-size:15px' }, stage.goal), holdSlot) : null,
       h('div', { class: 'move-grid' }, ...FACE_BUTTONS.map(moveButton)),
       h('div', { class: 'turn-row' }, ...TURN_BUTTONS.map(moveButton)),
-      h('div', { class: 'action-row' },
-        h('button', { class: 'btn btn-primary', onclick: () => { cube.scramble(); redraw(); } }, 'Scramble'),
-        undoBtn,
-        h('button', { class: 'btn btn-ghost reset', onclick: () => { cube.reset(); redraw(); } }, 'Reset'),
-      ),
+      h('div', { class: 'action-row' }, newBtn, undoBtn, hintBtn, resetBtn),
     ),
   );
 
+  function newCube(undoable: boolean): void {
+    if (stage) {
+      const made = makeStageCube(stage.id);
+      const start = applyMoves(SOLVED, made.setup);
+      const color = (i: number) => COLOR_HEX[COLOR_OF_FACE[start[i] as Face]];
+      holdSlot.replaceChildren(holdNote(color(4), color(22), made.hold));
+      if (undoable) cube.replace(made.setup);
+      else cube = new PracticeCube(made.setup);
+    } else if (undoable) cube.scramble();
+    else cube = new PracticeCube();
+  }
+
   function showStatus(): void {
-    undoBtn.toggleAttribute('disabled', !cube.canUndo);
-    if (cube.solved && cube.moveCount > 0) {
-      status.replaceChildren(h('div', { class: 'h1' }, 'Solved!'), h('span', { class: 'muted' }, `${cube.moveCount} moves`));
+    if (hintOpen) return;
+    undoBtn.toggleAttribute('disabled', playing || !cube.canUndo);
+    const count = cube.moveCount === 1 ? '1 move' : `${cube.moveCount} moves`;
+    if (stage && cube.moveCount > 0 && stageDone(stage.id, cube.state)) {
+      const next = STAGES[stageIndex + 1];
+      status.replaceChildren(h('div', { class: 'hint-card' },
+        h('div', { class: 'h1' }, 'Stage done!'),
+        h('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' },
+          h('button', { class: 'btn btn-primary', onclick: () => { newCube(true); redraw(); } }, 'New cube'),
+          next ? h('button', { class: 'btn btn-ghost', onclick: () => go('practice', next.id) }, 'Next stage') : null,
+          h('button', { class: 'btn btn-ghost', onclick: () => go('learn') }, 'Back to Learn'),
+        )));
+    } else if (cube.solved && cube.moveCount > 0) {
+      status.replaceChildren(h('div', { class: 'h1' }, 'Solved!'), h('span', { class: 'muted' }, count));
     } else {
-      status.replaceChildren(h('span', { class: 'muted' }, cube.moveCount === 1 ? '1 move' : `${cube.moveCount} moves`));
+      status.replaceChildren(h('span', { class: 'muted' }, count));
     }
   }
 
   function turn(m: string): void {
+    closeHint();
     const before = cube.setup;
     cube.apply(m);
     player.load(before, [m], 0);
@@ -61,6 +112,68 @@ export function practiceScreen(root: HTMLElement): Cleanup {
     showStatus();
   }
 
+  function closeHint(): void {
+    if (!hintOpen) return;
+    hintOpen = false;
+    player.highlight(FULL_MASK);
+  }
+
+  function showHint(): void {
+    if (playing) return;
+    const hint = hinter.next(cube.state);
+    hintOpen = true;
+    if (hint.kind === 'solved') {
+      player.highlight(FULL_MASK);
+      status.replaceChildren(h('div', { class: 'hint-card' }, h('strong', {}, 'Already solved!'), h('span', { class: 'muted' }, 'Tap Scramble for a new cube.')));
+      return;
+    }
+    player.highlight(pieceMask(hint.pieces));
+    renderHint(hint, false);
+  }
+
+  function renderHint(hint: Extract<Hint, { kind: 'step' }>, isPlaying: boolean): void {
+    status.replaceChildren(h('div', { class: 'hint-card' },
+      h('strong', {}, `Stage ${hint.stageIndex + 1} of ${STAGES.length}: ${hint.title}`),
+      h('span', {}, hint.note),
+      h('div', { class: 'chips' }, ...hint.moves.map((m) => h('div', { class: 'chip' }, h('b', {}, prettyMove(m)), h('small', {}, shortMoveWords(m))))),
+      isPlaying
+        ? h('span', { class: 'muted' }, 'Playing...')
+        : h('button', { class: 'btn btn-primary', onclick: () => void doItForMe(hint) }, 'Do it for me'),
+    ));
+  }
+
+  async function doItForMe(hint: Extract<Hint, { kind: 'step' }>): Promise<void> {
+    playing = true;
+    controls.forEach((b) => b.setAttribute('disabled', ''));
+    renderHint(hint, true);
+    player.setTempo(SLOW_TEMPO);
+    for (const m of hint.moves) {
+      if (stopped) return;
+      const before = cube.setup;
+      cube.apply(m);
+      player.load(before, [m], 0);
+      player.next();
+      await new Promise((r) => setTimeout(r, SLOW_MOVE_MS));
+    }
+    if (stopped) return;
+    player.setTempo(NORMAL_TEMPO);
+    player.highlight(FULL_MASK);
+    playing = false;
+    controls.forEach((b) => b.removeAttribute('disabled'));
+    hintOpen = false;
+    showStatus();
+    if (!(stage && stageDone(stage.id, cube.state)) && !cube.solved) {
+      status.prepend(h('span', {}, 'Done! Tap Hint for the next step.'));
+    }
+  }
+
+  newCube(false);
   redraw();
-  return () => player.dispose();
+  // The beginner solver builds small tables on first use; do it now, not on the first Hint tap.
+  const warm = setTimeout(() => { if (!stopped) solveBeginner(applyMoves(SOLVED, randomScramble())); }, 300);
+  return () => {
+    stopped = true;
+    clearTimeout(warm);
+    player.dispose();
+  };
 }
