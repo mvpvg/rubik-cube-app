@@ -33,6 +33,15 @@ export function warmUpSolver(): void {
     if (e.data.moves) job.resolve(e.data.moves);
     else job.reject(new Error(e.data.error ?? 'Solver failed'));
   };
+  // If the worker cannot load or crashes, fail the waiting solves and fall back to the main thread.
+  const fail = () => {
+    worker?.terminate();
+    worker = null;
+    for (const job of pending.values()) job.reject(new Error('Solver stopped'));
+    pending.clear();
+  };
+  worker.onerror = fail;
+  worker.onmessageerror = fail;
   worker.postMessage({ id: -1, warm: true });
 }
 

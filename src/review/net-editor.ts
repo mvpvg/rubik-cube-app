@@ -1,7 +1,7 @@
 import './review.css';
 import { go } from '../app/router';
 import { session, setCube } from '../app/session';
-import { CENTER_INDEX, COLOR_HEX, COLOR_NAME, FACES, COLOR_OF_FACE, faceOf, fromColors, type Color, type Face } from '../cube/facelets';
+import { CENTER_INDEX, COLOR_HEX, COLOR_NAME, FACES, COLOR_OF_FACE, faceOf, fromColors, toColors, type Color, type Face } from '../cube/facelets';
 import { validate } from '../cube/validate';
 import { classify } from '../scan/classify';
 import { h, icon } from '../ui/dom';
@@ -27,6 +27,7 @@ function startingColors(param?: string): { colors: Slot[]; checkMe: Set<number> 
     return { colors, checkMe: new Set(checkMe) };
   }
   if (session.colors) return { colors: session.colors.slice(), checkMe: new Set() };
+  if (session.facelets) return { colors: toColors(session.facelets), checkMe: new Set() };
   return startingColors('manual');
 }
 

@@ -41,10 +41,60 @@ describe('validate', () => {
 
   it('two swapped corners only', () => {
     // Swap the URF and UFL corners without twisting them.
-    const s = set(SOLVED, { 8: 'U', 9: 'L', 20: 'F', 6: 'U', 18: 'R', 38: 'F' });
+    const s = set(SOLVED, { 8: 'U', 9: 'F', 20: 'L', 6: 'U', 18: 'R', 38: 'F' });
     const r = validate(s);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.message).toMatch(/swapped/);
+  });
+
+  it('a corner with its two side colors swapped is impossible', () => {
+    // Mirror the up-right-front corner: red and green trade places.
+    const r = validate(set(SOLVED, { 9: 'F', 20: 'R' }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.message).toMatch(/cannot sit together/);
+      expect(r.highlight.sort((a, b) => a - b)).toEqual([8, 9, 20]);
+    }
+  });
+
+  it('too few squares of one color', () => {
+    // Up face first, so the short count is reported before the extra one.
+    const r = validate(set(SOLVED, { 0: 'R' }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.message).toMatch(/only 8 white/);
+  });
+
+  it('two middle squares the same color', () => {
+    const r = validate(set(SOLVED, { 13: 'F', 18: 'R' }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.message).toMatch(/middle squares/);
+      expect(r.highlight).toEqual([4, 13, 22, 31, 40, 49]);
+    }
+  });
+
+  it('two corners with the same colors', () => {
+    // The up-front-left corner is painted as a second up-right-front corner; the up-right-front
+    // stickers take its colors so every color still appears nine times.
+    const r = validate(set(SOLVED, { 6: 'U', 18: 'R', 38: 'F', 9: 'F', 20: 'L' }));
+    expect(r.ok).toBe(false);
+  });
+
+  it('two edges with the same colors', () => {
+    // Up-front edge painted white-red like up-right; the down-right red sticker turns green to keep counts.
+    const r = validate(set(SOLVED, { 19: 'R', 16: 'F' }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.message).toMatch(/Two edges/);
+  });
+
+  it('impossible edge colors', () => {
+    // White and yellow can never share an edge.
+    const r = validate(set(SOLVED, { 10: 'D', 28: 'R' }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.message).toMatch(/This edge has colors that cannot sit together/);
+      expect(r.highlight).toHaveLength(2);
+    }
   });
 
   it('impossible corner colors', () => {

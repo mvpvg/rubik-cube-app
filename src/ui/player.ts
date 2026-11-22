@@ -2,6 +2,10 @@ import type { TwistyPlayer } from 'cubing/twisty';
 
 // The one place the app talks to the cubing.js 3D player, so its experimental settings stay
 // pinned in one file.
+// Piece masks use cubing.js piece order: edges UF UR UB UL DF DR DB DL FR FL BR BL,
+// corners UFR URB UBL ULF DRF DFL DLB DBR, centers U L F R B D. '-' shows a piece, 'D' dims it.
+export const FULL_MASK = 'EDGES:------------,CORNERS:--------,CENTERS:------';
+
 export class CubePlayer {
   readonly el: HTMLElement;
   private twisty: TwistyPlayer | null = null;
@@ -10,6 +14,7 @@ export class CubePlayer {
   private done = 0;
   private ready: Promise<void>;
   private disposed = false;
+  private mask = FULL_MASK;
 
   constructor(label = '3D cube') {
     this.el = document.createElement('div');
@@ -32,6 +37,7 @@ export class CubePlayer {
       if (this.disposed) return;
       t.style.width = '100%';
       t.style.height = '100%';
+      t.experimentalStickeringMaskOrbits = this.mask;
       this.twisty = t;
       this.el.append(t);
       this.render(false);
@@ -44,6 +50,12 @@ export class CubePlayer {
     this.moves = moves;
     this.done = Math.max(0, Math.min(done, moves.length));
     void this.ready.then(() => this.render(false));
+  }
+
+  // Dims the pieces that do not matter right now.
+  highlight(mask: string = FULL_MASK): void {
+    this.mask = mask;
+    if (this.twisty) this.twisty.experimentalStickeringMaskOrbits = mask;
   }
 
   // Frees the WebGL view when the screen closes; phones allow only a few at once.

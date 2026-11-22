@@ -7,8 +7,8 @@ import { solveInWorker } from '../solve/fast-solve';
 import { h, icon } from '../ui/dom';
 import { holdNote } from '../ui/hold';
 import { moveWords, prettyMove } from '../ui/move-words';
-import { CubePlayer } from '../ui/player';
-import { firstUnfinishedStage, solveBeginner, STAGES, type StagePlan } from './beginner-solver';
+import { CubePlayer, FULL_MASK } from '../ui/player';
+import { firstUnfinishedStage, solveBeginner, STAGES, type StageId, type StagePlan } from './beginner-solver';
 
 type Progress = { cube: string; stage: number; move: number };
 const KEY = 'learn.progress';
@@ -18,6 +18,13 @@ interface FlatMove { move: string; sub: number; inSub: number }
 function flatten(plan: StagePlan): FlatMove[] {
   return plan.subSteps.flatMap((s, sub) => s.moves.map((move, inSub) => ({ move, sub, inSub })));
 }
+
+// Which pieces each early stage is about; the rest are dimmed. Later stages use the whole cube.
+const STAGE_MASKS: Partial<Record<StageId, string>> = {
+  'white-cross': 'EDGES:----DDDDDDDD,CORNERS:DDDDDDDD,CENTERS:------',
+  'white-corners': 'EDGES:----DDDDDDDD,CORNERS:----DDDD,CENTERS:------',
+  'middle-layer': 'EDGES:----DDDD----,CORNERS:----DDDD,CENTERS:------',
+};
 
 const colorAt = (state: string, i: number) => COLOR_HEX[COLOR_OF_FACE[state[i] as Face]];
 
@@ -29,7 +36,18 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
   }
   const cube: string = scanned;
 
-  const plans = solveBeginner(cube);
+  let plans: StagePlan[];
+  try {
+    plans = solveBeginner(cube);
+  } catch {
+    root.append(h('section', { class: 'screen' },
+      h('h1', {}, 'Let’s check the colors'),
+      h('p', { class: 'sub' }, 'These colors do not make a real cube. One square is probably wrong.'),
+      h('div', { class: 'spacer' }),
+      h('button', { class: 'btn btn-primary btn-wide', onclick: () => go('review') }, 'Check the colors'),
+    ));
+    return;
+  }
   const saved = load<Progress>(KEY);
   // Progress belongs to this cube. A new scan starts at the first stage it has not finished.
   let stage: number;
@@ -80,6 +98,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
   function loadPlayer(): void {
     if (!base || stage >= plans.length) return;
     player.load([...base, ...priorMoves(stage)], flatten(plans[stage]).map((f) => f.move), pos);
+    player.highlight(STAGE_MASKS[plans[stage].id] ?? FULL_MASK);
   }
 
   function render(): void {

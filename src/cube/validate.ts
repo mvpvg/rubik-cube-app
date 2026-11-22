@@ -51,7 +51,11 @@ export function validate(state: string): Validation {
   const twisted: number[] = [];
   for (let slot = 0; slot < 8; slot++) {
     const stickers = CORNERS[slot].map((i) => s[i]);
-    const piece = CORNER_COLORS.findIndex((cols) => sameSet(cols, stickers));
+    const ori = stickers.findIndex((x) => x === 'U' || x === 'D');
+    // Read clockwise from the white or yellow sticker: a corner with its two side colors
+    // swapped has the right colors but can never exist on a real cube.
+    const clockwise = [0, 1, 2].map((k) => stickers[(ori + k) % 3]).join('');
+    const piece = CORNER_COLORS.findIndex((cols) => sameSet(cols, stickers) && cols.join('') === clockwise);
     if (piece < 0) {
       return { ok: false, message: 'This corner has colors that cannot sit together on a real cube. Check these 3 squares.', highlight: CORNERS[slot] };
     }
@@ -60,7 +64,6 @@ export function validate(state: string): Validation {
       return { ok: false, message: 'Two corners have the same colors. One of them is wrong.', highlight: [...CORNERS[other], ...CORNERS[slot]] };
     }
     cornerPerm.push(piece);
-    const ori = stickers.findIndex((x) => x === 'U' || x === 'D');
     twist += ori;
     if (ori !== 0) twisted.push(...CORNERS[slot]);
   }

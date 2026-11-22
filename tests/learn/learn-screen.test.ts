@@ -5,12 +5,14 @@ import { solveBeginner } from '../../src/learn/beginner-solver';
 
 // The 3D player needs WebGL and the fast solver needs a worker; neither matters to these tests.
 vi.mock('../../src/ui/player', () => ({
+  FULL_MASK: 'full',
   CubePlayer: class {
     el = document.createElement('div');
     load() {}
     next() {}
     back() {}
     dispose() {}
+    highlight() {}
   },
 }));
 vi.mock('../../src/solve/fast-solve', () => ({ solveInWorker: () => new Promise(() => {}) }));
@@ -70,6 +72,14 @@ describe('learn screen', () => {
     const plan = solveBeginner(cube);
     session.facelets = applyMoves(cube, plan[0].subSteps.flatMap((s) => s.moves));
     expect(title(mount())).toBe('White corners');
+  });
+
+  it('colors that cannot make a real cube send the child back to check them', () => {
+    // Up-right-front corner with its red and green swapped: right counts, impossible cube.
+    session.facelets = cube.split('').map((c, i) => (i === 9 ? cube[20] : i === 20 ? cube[9] : c)).join('');
+    const root = mount();
+    expect(title(root)).toBe('Let’s check the colors');
+    expect(buttonNamed(root, 'Check the colors')).toBeDefined();
   });
 
   it('a new scramble replaces the saved progress', () => {

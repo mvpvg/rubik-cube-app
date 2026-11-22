@@ -21,6 +21,7 @@ describe('review screen', () => {
   beforeEach(() => {
     session.samples = null;
     session.colors = null;
+    session.facelets = null;
   });
 
   it('a valid scanned cube enables both Solve it and Learn it', () => {
@@ -44,6 +45,15 @@ describe('review screen', () => {
     expect(button(root, 'Solve it').disabled).toBe(true);
     expect(button(root, 'Learn it').disabled).toBe(true);
     expect(root.querySelector('.review-msg')?.textContent).toMatch(/squares/);
+  });
+
+  it('after a reload, going back shows the saved cube instead of a blank map', () => {
+    const state = Cube.random().asString();
+    session.facelets = state;
+    const root = mount();
+    const net = [...root.querySelectorAll('.net-sticker')].map((s) => s.textContent).join('');
+    expect(net).toBe(toColors(state).join(''));
+    expect(button(root, 'Solve it').disabled).toBe(false);
   });
 
   it('middle squares cannot be changed', () => {
