@@ -26,7 +26,6 @@ const ICONS = {
   play: '<path d="M7 5l12 7-12 7z"/>',
   pause: '<path d="M8 5v14M16 5v14"/>',
   check: '<path d="M5 13l4 4L19 7"/>',
-  rescan: '<path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M5 15a8 8 0 0013 3M19 9A8 8 0 006 6"/>',
   hand: '<path d="M7 11V6a2 2 0 014 0v5M11 10V4a2 2 0 014 0v7M15 10V6a2 2 0 014 0v8a6 6 0 01-6 6h-1a6 6 0 01-5-3l-3-5a2 2 0 013-2l2 2"/>',
 };
 

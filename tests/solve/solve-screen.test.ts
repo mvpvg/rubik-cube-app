@@ -25,8 +25,9 @@ const { loadSession, session, setCube, setSolve } = await import('../../src/app/
 const { applyMoves, invertMoves, SOLVED } = await import('../../src/cube/facelets');
 const { solveScreen } = await import('../../src/solve/solve-screen');
 
+// The top bar's buttons show words too ("Back"), so only the buttons below it are searched.
 const button = (root: HTMLElement, name: string) =>
-  [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === name) as HTMLButtonElement;
+  [...root.querySelectorAll('button')].find((b) => !b.closest('.topbar') && b.textContent?.trim() === name) as HTMLButtonElement;
 const tap = (root: HTMLElement, name: string) => button(root, name).click();
 const counter = (root: HTMLElement) => root.querySelector('.card .muted')?.textContent;
 

@@ -37,8 +37,8 @@ export function solveScreen(root: HTMLElement, param?: string): Cleanup | void {
 
   const screen = h('section', { class: 'screen' },
     h('div', { class: 'topbar' },
-      h('button', { class: 'icon-btn', 'aria-label': 'Back to checking colors', onclick: () => go('review') }, icon('back')),
-      h('button', { class: 'icon-btn', 'aria-label': 'Scan again', onclick: () => go('scan') }, icon('rescan')),
+      h('button', { class: 'top-btn', 'aria-label': 'Back to checking colors', onclick: () => go('review') }, icon('back'), 'Back'),
+      h('button', { class: 'top-btn', 'aria-label': 'Scan again', onclick: () => go('scan') }, icon('camera'), 'Scan again'),
     ),
     title,
     holdNote(COLOR_HEX.W, COLOR_HEX.G, 'Hold your cube with white on top and green facing you'),

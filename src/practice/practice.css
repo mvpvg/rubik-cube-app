@@ -2,32 +2,33 @@
 .practice-top {
   position: sticky; top: 0; z-index: 2;
   background: var(--bg);
-  padding-top: max(20px, env(safe-area-inset-top));
+  padding-top: max(16px, env(safe-area-inset-top));
   display: flex; flex-direction: column; gap: 8px;
 }
 .practice-top .player-box { height: 36dvh; min-height: 200px; flex: none; }
-.practice-status { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.practice-status .h1 { font-size: 24px; }
-.move-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.practice-status { min-height: var(--tap); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.practice-status .h1 { font-size: var(--text-l); }
+/* Four across on a phone; fewer when the page is zoomed, so the words stay inside each button. */
+.move-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: var(--tap-gap); }
 .move-btn {
-  min-height: 64px; border-radius: 16px; border: none;
+  min-height: var(--tap-main); border-radius: 16px; border: none;
   background: var(--panel); color: var(--text); font-family: var(--font);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 4px;
   cursor: pointer;
 }
-.move-btn b { font-size: 24px; font-weight: 800; line-height: 1; }
-.move-btn small { font-size: 12px; line-height: 1.15; text-align: center; color: var(--soft); }
+.move-btn b { font-size: var(--text-l); font-weight: 800; line-height: 1; }
+.move-btn small { font-size: var(--text-s); line-height: 1.15; text-align: center; color: var(--soft); }
 .move-btn:active { transform: scale(0.96); }
 .move-btn[disabled] { opacity: 0.4; cursor: not-allowed; }
-.turn-row, .action-row { display: flex; gap: 8px; }
-.turn-row .move-btn { flex: 1; min-height: 52px; }
-.action-row .btn { flex: 1; min-height: 52px; font-size: 16px; padding: 0 8px; }
+.turn-row, .action-row { display: flex; flex-wrap: wrap; gap: var(--tap-gap); }
+.turn-row .move-btn { flex: 1; }
+.action-row .btn { flex: 1 1 auto; min-height: var(--tap); font-size: var(--text-s); padding: 0 8px; }
 .action-row .reset { margin-left: 8px; }
-.hint-card { background: var(--panel); border: 2px solid var(--accent); border-radius: 18px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.hint-card { background: var(--panel); border: 2px solid var(--accent); border-radius: 18px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: var(--text-s); }
 .hint-card .chips { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
 .hint-card .chip { flex: 0 0 auto; min-width: 56px; border-radius: 12px; padding: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--bg); }
-.hint-card .chip b { font-size: 18px; font-weight: 800; }
-.hint-card .chip small { font-size: 11px; text-align: center; color: var(--soft); }
-.hint-card .btn { min-height: 44px; font-size: 16px; }
+.hint-card .chip b { font-size: var(--text-m); font-weight: 800; }
+.hint-card .chip small { font-size: var(--text-s); text-align: center; color: var(--soft); }
+.hint-card .btn { min-height: var(--tap); font-size: var(--text-s); }
 .stage-info { display: flex; flex-direction: column; gap: 8px; }
 .practice-status { flex-wrap: wrap; }

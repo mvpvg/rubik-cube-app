@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import Cube from 'cubejs';
 import { loadSession, saveSession, session, setCube, setLearn, type RGB } from '../../src/app/session';
-import { applyMoves, CENTER_INDEX, COLOR_NAME, SOLVED, toColors, type Color, type Face } from '../../src/cube/facelets';
+import { applyMoves, CENTER_INDEX, COLOR_HEX, COLOR_NAME, SOLVED, toColors, type Color, type Face } from '../../src/cube/facelets';
 import { reviewScreen } from '../../src/review/net-editor';
 
 function mount(param?: string): HTMLElement {
@@ -16,6 +16,14 @@ const button = (root: HTMLElement, label: string | RegExp) =>
 
 const openSide = (root: HTMLElement, color: Color) => button(root, `Show the ${COLOR_NAME[color]} side`).click();
 const zoomSquares = (root: HTMLElement) => [...root.querySelectorAll<HTMLButtonElement>('.zoom-sticker')];
+// The small map shows colors with no letters, so each square's color is read back from its background.
+const COLOR_OF_BACKGROUND = new Map(Object.entries(COLOR_HEX).map(([c, hex]) => {
+  const probe = document.createElement('div');
+  probe.style.background = hex;
+  return [probe.style.background, c];
+}));
+const netText = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLElement>('.net-sticker')].map((s) => COLOR_OF_BACKGROUND.get(s.style.background) ?? '?').join('');
 
 describe('review screen', () => {
   beforeEach(() => {
@@ -50,8 +58,7 @@ describe('review screen', () => {
     const state = Cube.random().asString();
     session.facelets = state;
     const root = mount();
-    const net = [...root.querySelectorAll('.net-sticker')].map((s) => s.textContent).join('');
-    expect(net).toBe(toColors(state).join(''));
+    expect(netText(root)).toBe(toColors(state).join(''));
     expect(button(root, 'Solve it').disabled).toBe(false);
   });
 
@@ -62,12 +69,16 @@ describe('review screen', () => {
     expect(zoomSquares(root)[4].disabled).toBe(true);
   });
 
-  it('every square shows its color letter', () => {
+  it('every square in the close-up card shows its color letter, and the small map shows none', () => {
     session.colors = toColors(Cube.random().asString());
     const root = mount();
-    const net = [...root.querySelectorAll('.net-sticker')].map((s) => s.textContent);
-    expect(net).toHaveLength(54);
-    expect(net.every((t) => /^[WYROGB]$/.test(t ?? ''))).toBe(true);
+    for (const side of ['W', 'R', 'G', 'Y', 'O', 'B'] as Color[]) {
+      openSide(root, side);
+      const letters = zoomSquares(root).map((s) => s.textContent);
+      expect(letters).toHaveLength(9);
+      expect(letters.every((t) => /^[WYROGB]$/.test(t ?? ''))).toBe(true);
+    }
+    expect(root.querySelector('.net')!.textContent).toBe('');
   });
 
   it('typing in all 48 squares of a valid cube enables both buttons', () => {
@@ -94,7 +105,6 @@ describe('review screen', () => {
     zoomSquares(root)[index % 9].click();
     button(root, COLOR_NAME[color]).click();
   };
-  const netText = (root: HTMLElement) => [...root.querySelectorAll('.net-sticker')].map((s) => s.textContent).join('');
   // Camera samples of a solved cube: if the color match ran on them, every side would turn one color.
   const RGB_OF: Record<Face, RGB> = {
     U: [255, 255, 255], R: [196, 30, 58], F: [0, 158, 96], D: [255, 213, 0], L: [255, 88, 0], B: [0, 81, 186],

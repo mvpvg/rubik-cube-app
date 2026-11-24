@@ -1,15 +1,18 @@
-.learn { gap: 12px; }
-.stage-bar { display: flex; gap: 5px; }
-.stage-bar span { flex: 1; height: 10px; border-radius: 5px; background: var(--panel-line); }
+.learn { gap: 8px; }
+/* "Back", "Moves" and "Scan again" with words fill the top bar on a 360 px phone, so the stage bar gets its own row. */
+.stage-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.stage-bar { flex: 1 0 80px; display: flex; gap: 5px; }
+.stage-bar span { flex: 1; height: 10px; border-radius: 5px; background: var(--line); }
 .stage-bar span.done { background: var(--green); }
 .stage-bar span.now { background: var(--accent); }
-.learn .h1 { font-size: 32px; }
-.learn .player-box { min-height: 200px; }
-.step-note { font-size: 18px; line-height: 1.4; margin: 0; }
+.learn h1, .learn .h1 { font-size: var(--text-l); }
+.step-note { font-size: var(--text-say); line-height: 1.35; margin: 0; }
+.learn .card { gap: 8px; padding: 10px 16px; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
-.chip { flex: 1 0 64px; max-width: 92px; border-radius: 16px; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; background: var(--bg); color: var(--text); }
+.chip { flex: 1 0 56px; max-width: 92px; border-radius: 16px; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; background: var(--bg); color: var(--text); }
 .chip.past { background: var(--panel-line); }
 .chip.now { background: var(--accent); color: var(--on-accent); }
-.chip b { font-size: 24px; font-weight: 800; }
-.chip small { font-size: 12px; line-height: 1.2; text-align: center; }
+.chip b { font-size: var(--text-l); font-weight: 800; }
+/* 16 px words do not fit under every chip, so only the current move's words show, on one line under the chips. */
+.chip-words { margin: 0; font-size: var(--text-say); font-weight: 700; }
 .cheer { text-align: center; align-items: center; }

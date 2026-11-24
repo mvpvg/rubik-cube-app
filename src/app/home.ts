@@ -33,7 +33,7 @@ function welcome(route: string): HTMLElement {
   return h('div', { class: 'card welcome' },
     h('h2', { class: 'h1' }, 'Welcome back'),
     h('p', { class: 'sub' }, stepName(route)),
-    h('button', { class: 'btn btn-primary btn-wide', style: 'min-height:68px;font-size:22px', onclick: () => keepGoing(route) }, 'Keep going'),
+    h('button', { class: 'btn btn-primary btn-wide', style: 'font-size:var(--text-l)', onclick: () => keepGoing(route) }, 'Keep going'),
   );
 }
 
@@ -59,17 +59,17 @@ export function homeScreen(root: HTMLElement): void {
   root.append(
     h('section', { class: 'screen' },
       h('div', { style: 'display:flex;flex-direction:column;gap:8px;margin-top:12px' },
-        h('h1', { style: 'font-size:40px' }, 'Cube Coach'),
+        h('h1', { style: 'font-size:var(--text-big)' }, 'Cube Coach'),
         h('p', { class: 'sub' }, 'Show me your cube. I will help you solve it.'),
       ),
       route ? welcome(route) : h('div', { class: 'home-hero' }, cube),
       route
         ? h('button', { class: 'btn btn-ghost btn-wide', onclick: () => startNew(root) }, icon('camera', 26), 'Start a new cube')
-        : h('button', { class: 'btn btn-primary btn-wide', style: 'min-height:68px;font-size:22px', onclick: () => go('scan') },
+        : h('button', { class: 'btn btn-primary btn-wide', style: 'font-size:var(--text-l)', onclick: () => go('scan') },
           icon('camera', 26), 'Scan my cube'),
       h('button', { class: 'btn btn-ghost btn-wide', onclick: () => go('practice') }, 'Practice on a screen cube'),
       h('button', { class: 'link', onclick: () => go('review', 'manual') }, 'Type in the colors instead'),
-      h('div', { class: 'row', style: 'justify-content:center;gap:4px;flex-wrap:wrap' },
+      h('div', { class: 'row', style: 'justify-content:center;flex-wrap:wrap' },
         h('button', { class: 'link', onclick: () => go('moves') }, 'What do the move letters mean?'),
         moreHelpLink(),
       ),

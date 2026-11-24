@@ -61,9 +61,11 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
 
   const bar = h('div', { class: 'stage-bar', role: 'img' });
   const stageLabel = h('div', { class: 'muted' });
+  const stepLabel = h('div', { class: 'muted' });
   const title = h('h1', {});
   const goal = h('p', { class: 'sub' });
-  const practiceLink = h('button', { class: 'link', style: 'align-self:flex-start;padding:4px 0' }, 'Practice this stage');
+  const tip = h('p', { class: 'sub' });
+  const practiceLink = h('button', { class: 'link' }, 'Practice this stage');
   const hold = h('div', {});
   const player = new CubePlayer('3D cube showing this stage');
   const box = h('div', { class: 'player-box' }, player.el);
@@ -72,17 +74,23 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
 
   root.append(
     h('section', { class: 'screen learn' },
-      h('div', { class: 'topbar' },
-        h('button', { class: 'icon-btn', 'aria-label': 'Back to checking colors', onclick: () => go('review') }, icon('back')),
-        bar,
-        h('button', { class: 'link', style: 'padding:8px', onclick: () => go('moves') }, 'Moves'),
-        h('button', { class: 'icon-btn', 'aria-label': 'My cube looks different. Scan again', onclick: () => go('scan') }, icon('rescan')),
+      h('div', { class: 'fit' },
+        h('div', { class: 'topbar' },
+          h('button', { class: 'top-btn', 'aria-label': 'Back to checking colors', onclick: () => go('review') }, icon('back'), 'Back'),
+          h('button', { class: 'link', style: 'padding:8px', onclick: () => go('moves') }, 'Moves'),
+          h('button', { class: 'top-btn', 'aria-label': 'My cube looks different. Scan again', onclick: () => go('scan') }, icon('camera'), 'Scan again'),
+        ),
+        h('div', { class: 'stage-row' }, bar, stageLabel, stepLabel),
+        title,
+        hold,
+        box,
+        card,
+        controls,
       ),
-      h('div', { style: 'display:flex;flex-direction:column;gap:6px' }, stageLabel, title, goal, practiceLink),
-      hold,
-      box,
-      card,
-      controls,
+      // The stage's goal and the practice link may sit below the fold: the move and "Next move" may not.
+      goal,
+      tip,
+      practiceLink,
     ),
   );
 
@@ -128,6 +136,8 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
 
     if (stage >= plans.length) {
       stageLabel.textContent = `All ${STAGES.length} stages`;
+      stepLabel.textContent = '';
+      tip.textContent = '';
       title.textContent = 'You solved it!';
       goal.textContent = 'Every side is one color. Scramble it and try again without the app.';
       hold.replaceChildren();
@@ -148,14 +158,16 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
     goal.textContent = plan.goal;
     practiceLink.hidden = false;
     practiceLink.onclick = () => go('practice', plan.id);
+    tip.textContent = flat.length ? plan.note : ''; // with no moves, the note is the card's heading
     hold.replaceChildren(holdNoteFor(plan.startState, plan.hold));
     card.className = 'card';
 
     backBtn = h('button', { class: 'btn btn-ghost', onclick: back }, icon('back', 20), 'Back');
+    stepLabel.textContent = '';
 
     if (flat.length === 0 || pos >= flat.length) {
       card.replaceChildren(
-        h('div', { class: 'h1', style: 'text-align:center;font-size:26px' }, flat.length === 0 ? plan.note : 'Stage done!'),
+        h('div', { class: 'h1', style: 'text-align:center' }, flat.length === 0 ? plan.note : 'Stage done!'),
         h('p', { class: 'sub', style: 'text-align:center' }, 'Does your cube look like the one on screen?'),
       );
       card.className = 'card cheer';
@@ -166,13 +178,13 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
 
     const cur = flat[pos];
     const sub = plan.subSteps[cur.sub];
+    stepLabel.textContent = `Step ${cur.sub + 1} of ${plan.subSteps.length}`;
     card.replaceChildren(
-      ...(pos === 0 && plan.note ? [h('p', { class: 'sub' }, plan.note)] : []),
-      h('div', { class: 'muted' }, `Step ${cur.sub + 1} of ${plan.subSteps.length}`),
       h('p', { class: 'step-note' }, sub.note),
       h('div', { class: 'chips' }, ...sub.moves.map((m, k) => h('div', {
         class: `chip${k < cur.inSub ? ' past' : k === cur.inSub ? ' now' : ''}`,
-      }, h('b', {}, prettyMove(m)), h('small', {}, moveWords(m))))),
+      }, h('b', {}, prettyMove(m))))),
+      h('p', { class: 'chip-words' }, moveWords(cur.move)),
     );
     againBtn = h('button', { class: 'btn btn-ghost btn-again', onclick: playCurrent }, icon('play', 20), 'Show again');
     controls.replaceChildren(againBtn, backBtn, h('button', { class: 'btn btn-primary', onclick: next }, 'Next move', icon('next', 20)));

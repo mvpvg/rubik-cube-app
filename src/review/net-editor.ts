@@ -21,6 +21,7 @@ function stickerStyle(c: Slot): string {
 }
 
 // The sides of the flat cross-shaped map. `side` wraps each side's 9 squares; `mark` adds a class and a dot to a square.
+// The map is a picture with no letters; each side's spoken label names it, and the close-up card shows the letters.
 function netSides(colors: Slot[], side: Side, mark: (i: number) => [string, Node | null] = () => ['', null]): HTMLElement[] {
   return FACES.map((f, fi) => {
     const [col, row] = NET_SPOT[f];
@@ -28,7 +29,7 @@ function netSides(colors: Slot[], side: Side, mark: (i: number) => [string, Node
       const i = fi * 9 + k;
       const c = colors[i];
       const [cls, dot] = mark(i);
-      return h('div', { class: `net-sticker${c ? '' : ' unknown'}${cls}`, style: stickerStyle(c) }, c ?? '?', dot);
+      return h('div', { class: `net-sticker${c ? '' : ' unknown'}${cls}`, style: stickerStyle(c) }, dot);
     }));
   });
 }
@@ -88,8 +89,8 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
   root.append(
     h('section', { class: 'screen review' },
       h('div', { class: 'topbar' },
-        h('button', { class: 'icon-btn', 'aria-label': 'Back', onclick: () => go('home') }, icon('back')),
-        h('button', { class: 'icon-btn', 'aria-label': 'Scan again', onclick: () => go('scan') }, icon('rescan')),
+        h('button', { class: 'top-btn', 'aria-label': 'Back', onclick: () => go('home') }, icon('back'), 'Back'),
+        h('button', { class: 'top-btn', 'aria-label': 'Scan again', onclick: () => go('scan') }, icon('camera'), 'Scan again'),
       ),
       h('div', { style: 'display:flex;flex-direction:column;gap:4px' },
         h('h1', {}, manual ? 'Type in the colors' : 'Check the colors'),

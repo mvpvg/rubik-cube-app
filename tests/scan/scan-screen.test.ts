@@ -124,7 +124,8 @@ describe('scan screen saving', () => {
     document.body.replaceChildren(root);
     reviewScreen(root);
     expect(classify).toHaveBeenCalledTimes(1);
-    expect([...root.querySelectorAll('.net-sticker')].map((s) => s.textContent).join('')).toBe(toColors(SOLVED).join(''));
+    // The color check opens on the green side; the small map has no letters, the close-up card does.
+    expect([...root.querySelectorAll('.zoom-sticker')].map((s) => s.textContent).join('')).toBe('GGGGGGGGG');
   });
 });
 

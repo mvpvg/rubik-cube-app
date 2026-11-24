@@ -85,10 +85,9 @@ export function turnPicture(): TurnPicture {
     from = quarters(start);
     turns = list;
     const old = el.querySelector('.turn-glow');
-    if (old) { old.classList.remove('turn-glow'); old.textContent = ''; }
+    old?.classList.remove('turn-glow');
     const center = faces[SIDES.findIndex(([, c]) => c === glow)].children[4];
     center.classList.add('turn-glow');
-    center.textContent = glow;
     arrows.replaceChildren(...turns.map((t) => h('span', { class: 'turn-arrow' }, ROTATE[t].arrow)));
     play();
   }

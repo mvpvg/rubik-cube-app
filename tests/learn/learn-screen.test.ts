@@ -36,8 +36,9 @@ function mount(param?: string): HTMLElement {
   return root;
 }
 
+// The top bar's buttons show words too ("Back"), so only the buttons below it are searched.
 const buttonNamed = (root: HTMLElement, name: string) =>
-  [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === name) as HTMLButtonElement | undefined;
+  [...root.querySelectorAll('button')].find((b) => !b.closest('.topbar') && b.textContent?.trim() === name) as HTMLButtonElement | undefined;
 const title = (root: HTMLElement) => root.querySelector('h1')?.textContent;
 
 function finishStage(root: HTMLElement): void {

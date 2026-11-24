@@ -14,6 +14,20 @@
   --orange: #FF5800;
   --green: #009E60;
   --blue: #0051BA;
+  /* Edges that must stand out at least 3:1 from the background, the panels and the wells. */
+  --line: #7A7F8C;
+  /* Sizes for every screen: no text under 16 px, instructions at 20 px, every control at least 48 px tall,
+     main buttons 64 px, and "Take picture" 80 px. */
+  --text-s: 16px;
+  --text-m: 18px;
+  --text-say: 20px;
+  --text-l: 24px;
+  --text-title: 28px;
+  --text-big: 36px;
+  --tap: 48px;
+  --tap-main: 64px;
+  --tap-take: 80px;
+  --tap-gap: 8px;
   --radius-l: 24px;
   --radius-m: 18px;
   --font: Lexend, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -38,44 +52,47 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: max(20px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom));
+  gap: 12px;
+  padding: max(16px, env(safe-area-inset-top)) 20px max(16px, env(safe-area-inset-bottom));
 }
+/* Holds what must fit on one phone screen with no scrolling. Its picture box grows into the free space
+   and shrinks first; anything placed after it may sit below the fold. */
+.fit { display: flex; flex-direction: column; gap: inherit; min-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom))); }
 
-h1, .h1 { margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.08; }
-.sub { margin: 0; font-size: 17px; line-height: 1.45; color: var(--soft); }
-.muted { color: var(--muted); font-size: 15px; }
+h1, .h1 { margin: 0; font-size: var(--text-title); font-weight: 800; letter-spacing: -0.01em; line-height: 1.08; }
+.sub { margin: 0; font-size: var(--text-say); line-height: 1.45; color: var(--soft); }
+.muted { color: var(--muted); font-size: var(--text-s); }
 .spacer { flex: 1; }
-.row { display: flex; gap: 12px; align-items: center; }
+.row { display: flex; gap: var(--tap-gap); align-items: center; }
 
 button, .btn { font-family: var(--font); cursor: pointer; }
 .btn {
-  min-height: 60px;
+  min-height: var(--tap-main);
   border-radius: var(--radius-m);
-  font-size: 20px;
+  font-size: var(--text-say);
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 0 18px;
+  gap: 8px;
+  padding: 0 14px;
   text-decoration: none;
   border: 3px solid transparent;
   transition: transform 80ms ease;
 }
 .btn:active { transform: scale(0.97); }
 .btn-primary { background: var(--accent); color: var(--on-accent); font-weight: 800; }
-.btn-ghost { background: transparent; color: var(--text); border-color: var(--panel-line); }
+.btn-ghost { background: transparent; color: var(--text); border-color: var(--line); }
 .btn[disabled] { opacity: 0.4; cursor: not-allowed; transform: none; }
 .btn-wide { width: 100%; }
-.link { color: var(--accent); font-size: 16px; font-weight: 500; text-align: center; background: none; border: none; padding: 12px; }
+.link { min-height: var(--tap); color: var(--accent); font-size: var(--text-s); font-weight: 500; text-align: center; background: none; border: none; padding: 12px; }
 
-.icon-btn {
-  width: 44px; height: 44px; border-radius: 12px; border: none;
-  background: var(--panel); color: var(--text);
-  display: inline-flex; align-items: center; justify-content: center;
+.top-btn {
+  min-height: var(--tap); padding: 0 12px 0 6px; border-radius: 12px; border: 2px solid var(--line);
+  background: var(--panel); color: var(--text); font-size: var(--text-s); font-weight: 700; white-space: nowrap;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
 }
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--tap-gap); min-height: var(--tap); }
 
 .card { background: var(--panel); border-radius: var(--radius-l); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 
@@ -85,9 +102,10 @@ button, .btn { font-family: var(--font); cursor: pointer; }
   border-radius: var(--radius-l); background: var(--panel); color: var(--text);
 }
 .confirm[open] { display: flex; flex-direction: column; gap: 14px; }
+.confirm .btn { flex-shrink: 0; }
 .confirm::backdrop { background: rgb(0 0 0 / 0.7); }
-.confirm-question { margin: 0 0 6px; font-size: 24px; font-weight: 800; line-height: 1.3; }
-.note { display: flex; align-items: center; gap: 10px; background: var(--panel); border-radius: 16px; padding: 10px 14px; font-size: 15px; }
+.confirm-question { margin: 0 0 6px; font-size: var(--text-l); font-weight: 800; line-height: 1.3; }
+.note { display: flex; align-items: center; gap: 10px; background: var(--panel); border-radius: 16px; padding: 6px 14px; font-size: var(--text-s); }
 .note b { color: var(--accent); }
 
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
@@ -104,7 +122,7 @@ button, .btn { font-family: var(--font); cursor: pointer; }
 .cube-face > div { border-radius: 6px; }
 
 /* 3D player */
-.cube-player { width: 100%; height: 100%; min-height: 220px; display: flex; align-items: center; justify-content: center; }
+.cube-player { width: 100%; height: 100%; min-height: 100px; display: flex; align-items: center; justify-content: center; }
 
 /* Hold note mini cube */
 .mini-wrap { width: 34px; height: 34px; perspective: 200px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -112,14 +130,15 @@ button, .btn { font-family: var(--font); cursor: pointer; }
 .mini-face { position: absolute; inset: 0; border-radius: 5px; border: 2px solid var(--bg); }
 
 /* Move card */
-.player-box { flex: 1; min-height: 240px; display: flex; }
+/* The 3D cube box grows into the free space and is the first thing to shrink on a short screen. */
+.player-box { flex: 1; min-height: 100px; display: flex; }
 .move-card { display: flex; align-items: center; gap: 16px; }
-.move-big { min-width: 76px; height: 76px; border-radius: 18px; background: var(--accent); color: var(--on-accent); font-size: 34px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 10px; }
-.move-words { font-size: 20px; font-weight: 700; line-height: 1.25; }
-.controls { display: flex; flex-wrap: wrap; gap: 12px; }
+.move-big { min-width: 64px; height: 64px; border-radius: 18px; background: var(--accent); color: var(--on-accent); font-size: var(--text-big); font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 10px; }
+.move-words { font-size: var(--text-say); font-weight: 700; line-height: 1.25; }
+.controls { display: flex; flex-wrap: wrap; gap: var(--tap-gap); }
 .controls .btn { flex: 1; }
 .controls .btn-primary { flex: 1.4; }
 /* Three big buttons do not fit side by side on a 360 px phone, so Show again gets its own row. */
-.controls .btn-again { flex: 1 1 100%; }
+.controls .btn-again { flex: 1 1 100%; min-height: var(--tap); }
 .done-card { text-align: center; align-items: center; }
-.done-card .h1 { font-size: 34px; }
+.done-card .h1 { font-size: var(--text-big); }
