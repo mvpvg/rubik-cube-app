@@ -7,6 +7,7 @@ import { h, icon } from '../ui/dom';
 import { holdNote } from '../ui/hold';
 import { moveWords, prettyMove } from '../ui/move-words';
 import { CubePlayer } from '../ui/player';
+import { keepScreenOn } from '../ui/wake-lock';
 import { solveInWorker } from './fast-solve';
 
 export function solveScreen(root: HTMLElement, param?: string): Cleanup | void {
@@ -154,6 +155,7 @@ export function solveScreen(root: HTMLElement, param?: string): Cleanup | void {
     else show(at);
   }
 
+  const letScreenDim = keepScreenOn();
   let stopped = false;
   if (saved) begin(saved.moves, saved.position);
   else solveInWorker(state).then((solution) => {
@@ -170,5 +172,6 @@ export function solveScreen(root: HTMLElement, param?: string): Cleanup | void {
     stopped = true;
     clearTimeout(unlock);
     player.dispose();
+    letScreenDim();
   };
 }

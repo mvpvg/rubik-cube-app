@@ -2,7 +2,8 @@ import { confirmDelete } from '../ui/confirm';
 import { h, icon } from '../ui/dom';
 import { COLOR_HEX } from '../cube/facelets';
 import { moreHelpLink } from '../ui/more-help';
-import { go } from './router';
+import { canInstall, dismiss, install, isDismissed, isInstalled, isIPhone } from './install';
+import { go, type Cleanup } from './router';
 import { clearAll, hasWorkToKeep, session } from './session';
 
 const SIDES: Array<[string, string]> = [
@@ -45,10 +46,29 @@ async function startNew(root: HTMLElement): Promise<void> {
   go('scan');
 }
 
-export function homeScreen(root: HTMLElement): void {
+// A small strip under the buttons until the app is installed or "Not now" is tapped.
+function installHelper(slot: HTMLElement): void {
+  const android = canInstall();
+  if (isInstalled() || isDismissed() || !(android || isIPhone())) return;
+  const words = 'margin:0;font-size:var(--text-m);color:var(--soft)';
+  slot.replaceChildren(h('div', { class: 'card', style: 'gap:8px;padding:12px' },
+    h('p', { style: words }, 'Add Cube Coach to your home screen'),
+    android ? null : h('p', { style: words }, 'Tap Share, then Add to Home Screen'),
+    h('div', { class: 'row', style: 'flex-wrap:wrap' },
+      android && h('button', {
+        class: 'btn btn-ghost', style: 'min-height:var(--tap);font-size:var(--text-m)',
+        onclick: () => { install(); slot.replaceChildren(); },
+      }, 'Add to home screen'),
+      h('button', { class: 'link', onclick: () => { dismiss(); slot.replaceChildren(); } }, 'Not now'),
+    ),
+  ));
+}
+
+export function homeScreen(root: HTMLElement): Cleanup {
   // Finished work (a solved cube) is not offered again.
   const route = hasWorkToKeep() ? session.route ?? 'review' : null;
 
+  const installSlot = h('div', {});
   const cube = h('div', { class: 'home-cube', role: 'img', 'aria-label': 'A spinning cube' });
   for (const [transform, color] of SIDES) {
     const face = h('div', { class: 'cube-face', style: `transform:${transform}` });
@@ -73,6 +93,12 @@ export function homeScreen(root: HTMLElement): void {
         h('button', { class: 'link', onclick: () => go('moves') }, 'What do the move letters mean?'),
         moreHelpLink(),
       ),
+      installSlot,
     ),
   );
+  installHelper(installSlot);
+  // The install event often comes a moment after Home is already on screen.
+  const late = () => installHelper(installSlot);
+  window.addEventListener('beforeinstallprompt', late);
+  return () => window.removeEventListener('beforeinstallprompt', late);
 }

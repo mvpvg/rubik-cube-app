@@ -2,6 +2,7 @@ import './styles.css';
 import { go, register, start } from './app/router';
 import { expireIfOld } from './app/session';
 import { homeScreen } from './app/home';
+import { listenForInstall } from './app/install';
 import { movesScreen } from './help/moves-screen';
 import { learnScreen } from './learn/learn-screen';
 import { practiceScreen } from './practice/practice-screen';
@@ -18,6 +19,7 @@ register('learn', learnScreen);
 register('practice', practiceScreen);
 register('moves', movesScreen);
 
+listenForInstall();
 warmUpSolver();
 start();
 

@@ -10,6 +10,7 @@ import { holdNoteFor } from '../ui/hold';
 import { moveWords, prettyMove } from '../ui/move-words';
 import { moreHelpLink } from '../ui/more-help';
 import { CubePlayer, FULL_MASK } from '../ui/player';
+import { keepScreenOn } from '../ui/wake-lock';
 import { firstUnfinishedStage, solveBeginner, STAGES, type StageId, type StagePlan } from './beginner-solver';
 
 interface FlatMove { move: string; sub: number; inSub: number }
@@ -279,6 +280,7 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
   keep();
   if (asking) ask();
   else render();
+  const letScreenDim = keepScreenOn();
   let stopped = false;
   const noCube = () => {
     if (stopped || !asking) return;
@@ -299,5 +301,6 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
     stopped = true;
     clearTimeout(unlock);
     player.dispose();
+    letScreenDim();
   };
 }
