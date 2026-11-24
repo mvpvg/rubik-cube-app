@@ -107,8 +107,10 @@ button, .btn { font-family: var(--font); cursor: pointer; }
 .move-card { display: flex; align-items: center; gap: 16px; }
 .move-big { min-width: 76px; height: 76px; border-radius: 18px; background: var(--accent); color: var(--on-accent); font-size: 34px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 10px; }
 .move-words { font-size: 20px; font-weight: 700; line-height: 1.25; }
-.controls { display: flex; gap: 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; }
 .controls .btn { flex: 1; }
 .controls .btn-primary { flex: 1.4; }
+/* Three big buttons do not fit side by side on a 360 px phone, so Show again gets its own row. */
+.controls .btn-again { flex: 1 1 100%; }
 .done-card { text-align: center; align-items: center; }
 .done-card .h1 { font-size: 34px; }

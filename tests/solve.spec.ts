@@ -9,8 +9,11 @@ test('solve screen steps through a solution on the 3D cube', async ({ page }) =>
   await expect(page.getByRole('heading', { name: /moves to solve it/ })).toBeVisible({ timeout: 20000 });
   await expect(page.getByText(/Move 1 of \d+/)).toBeVisible();
   await expect(page.locator('twisty-player')).toBeAttached();
+  // Each button waits, disabled, while a move plays; Playwright waits for it to be enabled.
   await page.getByRole('button', { name: 'Next move' }).click();
   await expect(page.getByText(/Move 2 of \d+/)).toBeVisible();
   await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page.getByText(/Move 1 of \d+/)).toBeVisible();
+  await page.getByRole('button', { name: 'Show again' }).click();
   await expect(page.getByText(/Move 1 of \d+/)).toBeVisible();
 });

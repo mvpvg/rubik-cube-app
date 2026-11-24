@@ -68,7 +68,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
   const practiceLink = h('button', { class: 'link', style: 'align-self:flex-start;padding:4px 0' }, 'Practice this stage');
   const hold = h('div', {});
   const player = new CubePlayer('3D cube showing this stage');
-  const card = h('div', { class: 'card' });
+  const card = h('div', { class: 'card', 'aria-live': 'polite' });
   const controls = h('div', { class: 'controls' });
 
   root.append(
@@ -88,6 +88,10 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
   );
 
   let base: string[] | null = null; // moves from solved to the scanned cube, for the 3D player
+  let locked = false; // while a move plays, so a fast double tap cannot skip a move unseen
+  let unlock: ReturnType<typeof setTimeout> | undefined;
+  let backBtn: HTMLButtonElement | null = null;
+  let againBtn: HTMLButtonElement | null = null;
 
   function priorMoves(upTo: number): string[] {
     return plans.slice(0, upTo).flatMap((p) => p.subSteps.flatMap((s) => s.moves));
@@ -95,6 +99,22 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
 
   function keep(): void {
     save(KEY, { cube, stage, move: pos } satisfies Progress);
+  }
+
+  function syncButtons(): void {
+    controls.querySelectorAll('button').forEach((b) => b.toggleAttribute('disabled', locked));
+    if (pos === 0 && stage === 0) backBtn?.setAttribute('disabled', '');
+    if (!base) againBtn?.setAttribute('disabled', '');
+  }
+
+  // The 3D cube rests after the move on the card: making a move current plays it from the cube
+  // before it. Without the 3D cube the cards work alone.
+  function playCurrent(): void {
+    if (!base || stage >= plans.length || pos >= flatten(plans[stage]).length) return;
+    locked = true;
+    clearTimeout(unlock);
+    unlock = setTimeout(() => { locked = false; syncButtons(); }, player.playAt(pos));
+    syncButtons();
   }
 
   function loadPlayer(): void {
@@ -132,7 +152,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
     hold.replaceChildren(holdNoteFor(plan.startState, plan.hold));
     card.className = 'card';
 
-    const backBtn = h('button', { class: 'btn btn-ghost', onclick: back, disabled: pos === 0 && stage === 0 }, icon('back', 20), 'Back');
+    backBtn = h('button', { class: 'btn btn-ghost', onclick: back }, icon('back', 20), 'Back');
 
     if (flat.length === 0 || pos >= flat.length) {
       card.replaceChildren(
@@ -141,6 +161,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
       );
       card.className = 'card cheer';
       controls.replaceChildren(backBtn, h('button', { class: 'btn btn-primary', onclick: nextStage }, icon('check', 20), 'I did it!'));
+      syncButtons();
       return;
     }
 
@@ -154,22 +175,23 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
         class: `chip${k < cur.inSub ? ' past' : k === cur.inSub ? ' now' : ''}`,
       }, h('b', {}, prettyMove(m)), h('small', {}, moveWords(m))))),
     );
-    controls.replaceChildren(backBtn, h('button', { class: 'btn btn-primary', onclick: next }, 'Next move', icon('next', 20)));
+    againBtn = h('button', { class: 'btn btn-ghost btn-again', onclick: playCurrent }, icon('play', 20), 'Show again');
+    controls.replaceChildren(againBtn, backBtn, h('button', { class: 'btn btn-primary', onclick: next }, 'Next move', icon('next', 20)));
+    syncButtons();
   }
 
   function next(): void {
     const flat = flatten(plans[stage]);
     if (pos >= flat.length) return;
     pos++;
-    player.next();
     keep();
     render();
+    playCurrent();
   }
 
   function back(): void {
     if (pos > 0) {
       pos--;
-      player.back();
     } else if (stage > 0) {
       stage--;
       pos = flatten(plans[stage]).length;
@@ -177,6 +199,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
     }
     keep();
     render();
+    playCurrent();
   }
 
   function nextStage(): void {
@@ -185,6 +208,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
     keep();
     loadPlayer();
     render();
+    playCurrent();
   }
 
   render();
@@ -193,10 +217,13 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
     if (stopped) return;
     base = invertMoves(solution);
     loadPlayer();
+    playCurrent();
+    syncButtons();
   }).catch(() => undefined);
 
   return () => {
     stopped = true;
+    clearTimeout(unlock);
     player.dispose();
   };
 }
