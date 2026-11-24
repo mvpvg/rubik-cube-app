@@ -5,6 +5,12 @@ A phone web app that scans a Rubik's cube with the camera, solves it, and teache
 
 It is only static files. There is no server. Camera pictures never leave the phone.
 
+## Saved work
+
+The app saves each step on the phone: each side scanned, each color fixed, and each move on Solve and Learn. A refresh or a closed app comes back to the same step, and Home offers "Keep going". Saved work is thrown away 7 days after it was last used. It stays in this browser on this phone and is never sent anywhere. Only the sampled colors are kept, never the camera pictures.
+
+To install it, open the site and use the "Add to home screen" strip on Home. On iPhone, tap Share, then "Add to Home Screen".
+
 ## Run it on your computer
 
 ```bash
