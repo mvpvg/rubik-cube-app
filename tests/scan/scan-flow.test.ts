@@ -97,4 +97,54 @@ describe('scan flow', () => {
     expect(out).toEqual({ from: '', turns: ['y', 'y'], words: STEPS[2].startTurn });
     expect(out.words).toMatch(/^Start with white on top and green facing you\. Turn the cube left\. Then turn the cube left\./);
   });
+
+  describe('taking a side again', () => {
+    const order: Face[] = ['F', 'R', 'B', 'L', 'U', 'D'];
+    const onSideFive = () => {
+      const flow = new ScanFlow();
+      order.slice(0, 4).forEach((f) => flow.capture(solidFace(f)));
+      return flow;
+    };
+    const redAgain: RGB[] = Array(9).fill([190, 35, 60]);
+
+    it('mid-scan on side 5, side 2 taken again: the flow is back on side 5 and sides 1 to 4 keep their pictures', () => {
+      const flow = onSideFive();
+      const before = flow.samples();
+      flow.retake(1);
+      expect(flow.step.center).toBe('R');
+      expect(flow.capture(redAgain).ok).toBe(true);
+      expect(flow.index).toBe(4);
+      const after = flow.samples();
+      expect(after.slice(9, 18)).toEqual(redAgain);
+      expect(after.filter((_, i) => i < 9 || i >= 18)).toEqual(before.filter((_, i) => i < 9 || i >= 18));
+      expect(flow.inOrder).toBe(false); // the child is holding the red side now, so the picture starts from the starting hold
+    });
+
+    it('"Keep my old one" goes back to side 5 and side 2 keeps its old picture', () => {
+      const flow = onSideFive();
+      const before = flow.samples();
+      flow.retake(1);
+      flow.keepOld();
+      expect(flow.index).toBe(4);
+      expect(flow.retaking).toBe(false);
+      expect(flow.samples()).toEqual(before);
+    });
+
+    it('a side taken again never offers "use it anyway"', () => {
+      const flow = onSideFive();
+      flow.retake(1);
+      flow.capture(solidFace('L'));
+      const second = flow.capture(solidFace('L'));
+      expect(!second.ok && second.canUseAnyway).toBe(false);
+    });
+
+    it('a flow built from saved samples with 3 sides taken asks for side 4, starting from the starting hold', () => {
+      const firstThree = STEPS.slice(0, 3).flatMap((s) => s.cells);
+      const flow = new ScanFlow(onSideFive().samples().map((x, i) => (firstThree.includes(i) ? x : null)));
+      expect(flow.taken(0) && flow.taken(1) && flow.taken(2)).toBe(true);
+      expect(flow.taken(3)).toBe(false);
+      expect(flow.index).toBe(3);
+      expect(flow.inOrder).toBe(false);
+    });
+  });
 });

@@ -3,18 +3,18 @@ import type { RGB } from '../../src/app/session';
 import { applyMoves, SOLVED, toColors, type Face } from '../../src/cube/facelets';
 
 // The camera is faked: each "Take picture" sees whatever side the test puts in front of it.
-const t = vi.hoisted(() => ({ cells: null as RGB[] | null }));
+const t = vi.hoisted(() => ({ cells: null as RGB[] | null, broken: false }));
 vi.mock('../../src/scan/camera', () => ({
-  startCamera: () => Promise.resolve({ getTracks: () => [] }),
+  startCamera: () => (t.broken ? Promise.reject(new Error('no camera')) : Promise.resolve({ getTracks: () => [] })),
   stopCamera: () => {},
   grabCells: (_v: unknown, _c: unknown, size: number) => (size === 300 ? t.cells : null),
 }));
 vi.mock('../../src/scan/classify', async (real) => {
   const actual = await real<typeof import('../../src/scan/classify')>();
-  return { classify: vi.fn(actual.classify) };
+  return { ...actual, classify: vi.fn(actual.classify) };
 });
 
-const { loadSession, session, setCube, setLearn } = await import('../../src/app/session');
+const { loadSession, saveSession, session, setCube, setLearn } = await import('../../src/app/session');
 const { classify } = await import('../../src/scan/classify');
 const { scanScreen } = await import('../../src/scan/scan-screen');
 const { reviewScreen } = await import('../../src/review/net-editor');
@@ -27,11 +27,15 @@ const ORDER: Face[] = ['F', 'R', 'B', 'L', 'U', 'D'];
 const CUBE = applyMoves(SOLVED, 'R U');
 const stored = () => JSON.parse(localStorage.getItem('cube.session')!);
 
-function mount(): { root: HTMLElement; close: () => void } {
+function mount(param?: string): { root: HTMLElement; close: () => void } {
   const root = document.createElement('main');
   document.body.replaceChildren(root);
-  return { root, close: scanScreen(root) };
+  return { root, close: scanScreen(root, param) };
 }
+
+const buttonNamed = (root: HTMLElement, name: string) =>
+  [...root.querySelectorAll('button')].find((b) => !b.hidden && (b.textContent === name || b.getAttribute('aria-label') === name)) as HTMLButtonElement | undefined;
+const headline = (root: HTMLElement) => root.querySelector('h1')!.textContent;
 
 function take(root: HTMLElement, face: Face): void {
   t.cells = Array(9).fill(RGB_OF[face]);
@@ -100,5 +104,135 @@ describe('scan screen saving', () => {
     reviewScreen(root);
     expect(classify).toHaveBeenCalledTimes(1);
     expect([...root.querySelectorAll('.net-sticker')].map((s) => s.textContent).join('')).toBe(toColors(SOLVED).join(''));
+  });
+});
+
+describe('scan screen, taking a side again', () => {
+  let close = () => {};
+  const SOLVED_SAMPLES = () => SOLVED.split('').map((f) => RGB_OF[f as Face]);
+  beforeEach(() => {
+    localStorage.clear();
+    loadSession();
+    t.broken = false;
+    location.hash = '';
+  });
+  afterEach(() => close());
+
+  it('opening the scan when the saved step is the scan goes on from the saved sides, and replaces nothing', () => {
+    const scan = mount();
+    close = scan.close;
+    take(scan.root, 'F');
+    take(scan.root, 'R');
+    scan.close();
+    loadSession();
+    const again = mount();
+    close = again.close;
+    expect(headline(again.root)).toBe('Show the blue side');
+    expect(again.root.querySelector('.scan-text p')!.textContent).toMatch(/^Start with white on top and green facing you\./);
+    take(again.root, 'B');
+    loadSession();
+    expect(session.route).toBe('scan');
+    expect(session.samples!.filter(Boolean)).toHaveLength(27);
+  });
+
+  it('mid-scan on side 5, taking side 2 again then "Keep my old one" goes back to side 5 with side 2 unchanged', () => {
+    const scan = mount();
+    close = scan.close;
+    ORDER.slice(0, 4).forEach((face) => take(scan.root, face));
+    const before = stored().samples;
+    expect(buttonNamed(scan.root, 'Keep my old one')).toBeUndefined();
+    expect(buttonNamed(scan.root, 'Yellow side, not taken yet')!.disabled).toBe(true);
+    buttonNamed(scan.root, 'Red side, taken. Tap to take again')!.click();
+    expect(headline(scan.root)).toBe('Show the red side');
+    buttonNamed(scan.root, 'Keep my old one')!.click();
+    expect(headline(scan.root)).toBe('Show the white side');
+    expect(stored().samples).toEqual(before);
+  });
+
+  it('mid-scan, side 2 taken again lands its new picture and goes back to side 5', () => {
+    const scan = mount();
+    close = scan.close;
+    ORDER.slice(0, 4).forEach((face) => take(scan.root, face));
+    buttonNamed(scan.root, 'Red side, taken. Tap to take again')!.click();
+    t.cells = Array(9).fill([190, 35, 60]);
+    buttonNamed(scan.root, 'Take picture')!.click();
+    expect(headline(scan.root)).toBe('Show the white side');
+    expect(stored().samples.slice(9, 18)).toEqual(Array(9).fill([190, 35, 60]));
+    expect(stored().samples.filter(Boolean)).toHaveLength(36);
+  });
+
+  describe('one side from the color check', () => {
+    const checkMe = [10, 14, 46]; // two on the red side, one on the blue side
+    beforeEach(() => {
+      session.samples = SOLVED_SAMPLES();
+      session.colors = toColors(SOLVED);
+      session.checkMe = checkMe;
+      session.route = 'review';
+      saveSession();
+    });
+
+    it('opening it shows "Keep my old one" at once, never offers "Use it anyway", and keeps the color check as the saved step', () => {
+      const scan = mount('R');
+      close = scan.close;
+      expect(headline(scan.root)).toBe('Show the red side');
+      expect(buttonNamed(scan.root, 'Keep my old one')).toBeDefined();
+      take(scan.root, 'L');
+      take(scan.root, 'L');
+      expect(buttonNamed(scan.root, 'Use it anyway')).toBeUndefined();
+      loadSession();
+      expect(session.route).toBe('review');
+      buttonNamed(scan.root, 'Keep my old one')!.click();
+      expect(location.hash).toBe('#/review/R');
+      loadSession();
+      expect(session.colors).toEqual(toColors(SOLVED));
+      expect(session.checkMe).toEqual(checkMe);
+    });
+
+    it('has no side buttons and no "Type in the colors instead"', () => {
+      const scan = mount('R');
+      close = scan.close;
+      expect(scan.root.querySelector('.scan-sides')).toBeNull();
+      expect(buttonNamed(scan.root, 'Type in the colors instead')).toBeUndefined();
+    });
+
+    it('Back goes to the color check on that side with the same colors and flags', () => {
+      const scan = mount('R');
+      close = scan.close;
+      buttonNamed(scan.root, 'Back')!.click();
+      expect(location.hash).toBe('#/review/R');
+      loadSession();
+      expect(session.colors).toEqual(toColors(SOLVED));
+      expect(session.checkMe).toEqual(checkMe);
+    });
+
+    it('a matching picture replaces only that side and goes back to the color check on it', () => {
+      const scan = mount('R');
+      close = scan.close;
+      take(scan.root, 'R');
+      expect(location.hash).toBe('#/review/R');
+      loadSession();
+      expect(session.route).toBe('review');
+      expect(session.colors).toEqual(toColors(SOLVED));
+      expect(session.checkMe).toEqual([46]);
+    });
+
+    it('when the camera fails, the only way out is back to the color check', async () => {
+      t.broken = true;
+      const scan = mount('R');
+      close = scan.close;
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(scan.root.textContent).toContain('The camera is not working. Go back and fix the squares by hand.');
+      expect(buttonNamed(scan.root, 'Type in the colors')).toBeUndefined();
+      buttonNamed(scan.root, 'Go back to the colors')!.click();
+      expect(location.hash).toBe('#/review/R');
+    });
+
+    it('with no saved colors it goes Home', () => {
+      localStorage.clear();
+      loadSession();
+      close = mount('R').close;
+      expect(location.hash).toBe('#/home');
+    });
   });
 });

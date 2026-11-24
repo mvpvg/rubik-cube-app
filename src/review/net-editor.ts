@@ -1,7 +1,7 @@
 import './review.css';
 import { go } from '../app/router';
 import { saveSession, session, setCube, startNewWork } from '../app/session';
-import { CENTER_INDEX, COLOR_HEX, COLOR_NAME, FACES, COLOR_OF_FACE, faceOf, fromColors, toColors, type Color, type Face } from '../cube/facelets';
+import { CENTER_INDEX, COLOR_HEX, COLOR_NAME, FACES, COLOR_OF_FACE, FACE_OF_COLOR, faceOf, fromColors, toColors, type Color, type Face } from '../cube/facelets';
 import { validate } from '../cube/validate';
 import { h, icon } from '../ui/dom';
 import { smartFill } from './smart-fill';
@@ -66,6 +66,8 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
 
   const firstFlagged = [...checkMe].sort((a, b) => a - b)[0];
   if (firstFlagged !== undefined) face = faceOf(firstFlagged);
+  // Coming back from taking one side again, that side is the one to look at.
+  if (param && param in FACE_OF_COLOR) face = FACES.indexOf(FACE_OF_COLOR[param as Color]);
 
   const net = h('div', { class: 'net' });
   const zoomTitle = h('div', { class: 'zoom-title' });
@@ -78,6 +80,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
   const message = h('p', { class: 'note review-msg', role: 'status' });
   const help = h('p', { class: 'review-help' });
   const solveBtn = h('button', { class: 'btn btn-ghost', style: 'flex:1', onclick: () => finish('solve') }, 'Solve it');
+  const retake = h('button', { class: 'btn btn-ghost', onclick: () => go('scan', COLOR_OF_FACE[FACES[face]]) }, icon('camera'), 'Take this side again');
   const learnBtn = h('button', { class: 'btn btn-primary', style: 'flex:1.3', onclick: () => finish('learn') }, 'Learn it');
 
   root.append(
@@ -92,7 +95,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
       ),
       net,
       autoLegend,
-      h('div', { class: 'card' }, h('div', { class: 'zoom-head' }, zoomTitle, zoomFlags), zoom, pickerLabel, picker),
+      h('div', { class: 'card' }, h('div', { class: 'zoom-head' }, zoomTitle, zoomFlags), zoom, pickerLabel, picker, manual ? null : retake),
       message,
       help,
       h('div', { class: 'spacer' }),

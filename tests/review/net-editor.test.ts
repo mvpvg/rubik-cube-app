@@ -244,6 +244,23 @@ describe('review screen', () => {
     });
   });
 
+  describe('taking a side again', () => {
+    it('"Take this side again" on the orange side opens the one-side scan for orange', () => {
+      session.colors = toColors(Cube.random().asString());
+      const root = mount();
+      openSide(root, 'O');
+      button(root, 'Take this side again').click();
+      expect(location.hash).toBe('#/scan/O');
+    });
+
+    it('opened at #/review/O, the close-up card shows the orange side', () => {
+      session.colors = toColors(Cube.random().asString());
+      const root = mount('O');
+      expect(root.querySelector('.zoom-title')!.textContent).toBe('Orange side');
+      expect(button(root, 'Show the orange side').getAttribute('aria-pressed')).toBe('true');
+    });
+  });
+
   it('shows the help line under the message when the cube is impossible', () => {
     const colors = toColors(Cube.random().asString());
     session.colors = colors;

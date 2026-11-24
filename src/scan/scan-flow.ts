@@ -71,12 +71,21 @@ export type CaptureResult =
   | { ok: true }
   | { ok: false; message: string; canUseAnyway: boolean };
 
-// Six pictures in a fixed order. Each accepted picture's nine colors land on their solver stickers.
+// Six sides, asked for in a fixed order. Which sides are taken is read from the samples themselves,
+// so it can never disagree with them. Any taken side can be taken again; then the scan goes back to
+// the side the child was on.
 export class ScanFlow {
-  index = 0;
+  index: number;
   private failures = 0;
   private rejected: RGB[] | null = null;
-  private readonly stickers: (RGB | null)[] = new Array(54).fill(null);
+  private back: number | null = null; // the side to go back to after a side taken again
+  private last: number | null = null; // the side taken just before, in this sitting
+  private readonly stickers: (RGB | null)[];
+
+  constructor(saved: (RGB | null)[] | null = null) {
+    this.stickers = saved?.slice() ?? new Array(54).fill(null);
+    this.index = this.firstNotTaken();
+  }
 
   get done(): boolean {
     return this.index >= STEPS.length;
@@ -84,6 +93,34 @@ export class ScanFlow {
 
   get step(): Step {
     return STEPS[Math.min(this.index, STEPS.length - 1)];
+  }
+
+  get retaking(): boolean {
+    return this.back !== null;
+  }
+
+  // In order only right after the side before it; otherwise the turn picture starts from the starting hold.
+  get inOrder(): boolean {
+    return this.last === this.index - 1;
+  }
+
+  taken(index: number): boolean {
+    return STEPS[index].cells.every((i) => this.stickers[i] !== null);
+  }
+
+  retake(index: number): void {
+    if (this.back === null) this.back = this.index;
+    this.index = index;
+    this.last = null;
+    this.reset();
+  }
+
+  // The side keeps its old picture.
+  keepOld(): void {
+    if (this.back === null) return;
+    this.index = this.back;
+    this.back = null;
+    this.reset();
   }
 
   capture(cells: RGB[]): CaptureResult {
@@ -98,23 +135,35 @@ export class ScanFlow {
     return {
       ok: false,
       message: `That looks like the ${COLOR_NAME[seen]} side. Show the ${COLOR_NAME[step.center]}-center side.`,
-      canUseAnyway: this.failures >= 2,
+      // A side taken again must never silently swap a good picture for the wrong side.
+      canUseAnyway: this.failures >= 2 && !this.retaking,
     };
   }
 
   // Keep the last rejected picture; the review screen lets the child fix colors later.
   useAnyway(): void {
-    if (this.rejected) this.accept(this.rejected);
+    if (this.rejected && !this.retaking) this.accept(this.rejected);
   }
 
   samples(): (RGB | null)[] {
     return this.stickers.slice();
   }
 
-  private accept(cells: RGB[]): void {
-    this.step.cells.forEach((sticker, i) => { this.stickers[sticker] = cells[i]; });
-    this.index++;
+  private firstNotTaken(): number {
+    const next = STEPS.findIndex((_, i) => !this.taken(i));
+    return next < 0 ? STEPS.length : next;
+  }
+
+  private reset(): void {
     this.failures = 0;
     this.rejected = null;
+  }
+
+  private accept(cells: RGB[]): void {
+    this.step.cells.forEach((sticker, i) => { this.stickers[sticker] = cells[i]; });
+    this.last = this.index;
+    this.index = this.back ?? this.firstNotTaken();
+    this.back = null;
+    this.reset();
   }
 }

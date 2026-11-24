@@ -1,6 +1,10 @@
 /* Scan screen */
-.scan-progress { display: flex; gap: 6px; flex: 1; justify-content: center; }
-.scan-dot { width: 22px; height: 10px; border-radius: 5px; background: var(--panel); }
+/* Six 48 px side buttons with 8 px gaps need 328 px, so the scan uses 16 px side padding. */
+.screen.scan { padding-left: 16px; padding-right: 16px; }
+.scan-sides { display: flex; gap: 8px; justify-content: center; }
+.scan-side { flex: none; width: 48px; height: 48px; border-radius: 12px; border: 2px solid var(--panel-line); background: var(--panel); cursor: pointer; }
+.scan-side:disabled { cursor: default; }
+.scan-side.now { outline: 3px solid var(--text); outline-offset: 2px; }
 
 .scan-camera {
   position: relative;
