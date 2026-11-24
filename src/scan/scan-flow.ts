@@ -76,7 +76,7 @@ export class ScanFlow {
   index = 0;
   private failures = 0;
   private rejected: RGB[] | null = null;
-  private readonly stickers: RGB[] = new Array(54);
+  private readonly stickers: (RGB | null)[] = new Array(54).fill(null);
 
   get done(): boolean {
     return this.index >= STEPS.length;
@@ -107,7 +107,7 @@ export class ScanFlow {
     if (this.rejected) this.accept(this.rejected);
   }
 
-  samples(): RGB[] {
+  samples(): (RGB | null)[] {
     return this.stickers.slice();
   }
 

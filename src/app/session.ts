@@ -11,9 +11,7 @@ export type LearnPosition = { cube: string; stage: number; move: number };
 
 interface Work {
   route: string | null; // the screen "Keep going" opens, as the hash path: 'review', 'solve', 'learn', ...
-  // 54 camera samples in solver sticker order, null for a square not taken yet.
-  // shortcut: typed as RGB[] so the color check can still pass it to classify; widen to (RGB | null)[] when the screens handle part-scanned cubes.
-  samples: RGB[] | null;
+  samples: (RGB | null)[] | null; // 54 camera samples in solver sticker order, null for a square not taken yet
   colors: (Color | null)[] | null; // may differ from the checked cube while the child is fixing them
   checkMe: number[]; // squares flagged "check me"
   filled: number[]; // squares "filled in for you"
@@ -144,6 +142,13 @@ export function expireIfOld(): boolean {
   if (session.savedAt === null || Date.now() - session.savedAt <= KEEP_FOR) return false;
   clearAll();
   return true;
+}
+
+// Throws away the old work and writes the new work in one save, so there is never a moment
+// when the old work is gone and the new work is not saved yet.
+export function startNewWork(work: Partial<Work>): boolean {
+  use({ ...empty(), ...work }, null);
+  return saveSession();
 }
 
 export function setCube(facelets: string): void {

@@ -13,7 +13,7 @@ export class CubePlayer {
   private setup: string[] = [];
   private moves: string[] = [];
   private done = 0;
-  private ready: Promise<void>;
+  readonly ready: Promise<void>; // fails when the 3D view cannot load
   private disposed = false;
   private mask = FULL_MASK;
   private tempo = DEFAULT_TEMPO;

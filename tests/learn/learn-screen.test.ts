@@ -15,6 +15,7 @@ vi.mock('../../src/ui/player', () => ({
   FULL_MASK: 'full',
   CubePlayer: class {
     el = document.createElement('div');
+    ready = Promise.resolve();
     load(_setup: string[], _moves: string[], done = 0) { t.load.push(done); }
     playAt(index: number) { t.playAt.push(index); return 1000; }
     dispose() {}
@@ -25,13 +26,13 @@ vi.mock('../../src/solve/fast-solve', () => ({
   solveInWorker: () => new Promise<string[]>((resolve, reject) => { t.resolve = resolve; t.reject = reject; }),
 }));
 
-const { session } = await import('../../src/app/session');
+const { loadSession, session, setLearn } = await import('../../src/app/session');
 const { learnScreen } = await import('../../src/learn/learn-screen');
 
-function mount(): HTMLElement {
+function mount(param?: string): HTMLElement {
   const root = document.createElement('main');
   document.body.replaceChildren(root);
-  learnScreen(root);
+  learnScreen(root, param);
   return root;
 }
 
@@ -48,6 +49,7 @@ describe('learn screen', () => {
   let cube: string;
   beforeEach(() => {
     localStorage.clear();
+    loadSession();
     t.load = [];
     t.playAt = [];
     // A cube whose white cross needs at least three moves.
@@ -155,5 +157,66 @@ describe('learn screen', () => {
 
   it('the step card is read aloud when it changes', () => {
     expect(mount().querySelector('.card')?.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('at stage 3 move 2, a reload from storage opens at stage 3 move 2', () => {
+    do cube = Cube.random().asString(); while (solveBeginner(cube)[2].subSteps.flatMap((s) => s.moves).length < 2);
+    session.facelets = cube;
+    const root = mount();
+    finishStage(root);
+    finishStage(root);
+    buttonNamed(root, 'Next move')!.click();
+    const card = root.querySelector('.card')!.innerHTML;
+    loadSession();
+    const again = mount();
+    expect(again.querySelector('.muted')?.textContent).toMatch(/^Stage 3 of/);
+    expect(again.querySelector('.card')!.innerHTML).toBe(card);
+    expect(session.learn).toMatchObject({ stage: 2, move: 1 });
+    expect(localStorage.getItem('learn.progress')).toBeNull();
+  });
+
+  describe('cube check', () => {
+    const settle = async () => { await Promise.resolve(); await Promise.resolve(); };
+
+    it('rests before the current move, and "Yes, keep going" plays it', async () => {
+      setLearn(0, 2);
+      const root = mount('check');
+      t.resolve(['R']);
+      await settle();
+      expect(root.textContent).toContain('Does your cube look like this?');
+      expect(t.load).toEqual([2]);
+      expect(t.playAt).toEqual([]);
+      buttonNamed(root, 'Yes, keep going')!.click();
+      expect(t.playAt).toEqual([2]);
+      expect(root.querySelector('.chip.now')).not.toBeNull();
+    });
+
+    it('on a "Stage done!" card, "No" offers "Scan it again" at once, with no second look', async () => {
+      setLearn(0, solveBeginner(cube)[0].subSteps.flatMap((s) => s.moves).length);
+      const root = mount('check');
+      t.resolve(['R']);
+      await settle();
+      expect(buttonNamed(root, 'Yes, keep going')).toBeDefined();
+      expect(buttonNamed(root, 'No, it looks different')).toBeUndefined();
+      buttonNamed(root, 'No, scan it again')!.click();
+      expect(location.hash).toBe('#/scan');
+    });
+
+    it('while the solver works it says "Getting your cube ready…" with no answer buttons and no 3D cube, and Back still works', () => {
+      const root = mount('check');
+      expect(root.textContent).toContain('Getting your cube ready…');
+      expect(buttonNamed(root, 'Yes, keep going')).toBeUndefined();
+      expect(root.querySelector<HTMLElement>('.player-box')!.style.display).toBe('none');
+      expect(root.querySelector<HTMLButtonElement>('[aria-label="Back to checking colors"]')!.disabled).toBe(false);
+    });
+
+    it('when the solver fails, it shows a flat color map of the cube with both buttons', async () => {
+      const root = mount('check');
+      t.reject();
+      await settle();
+      expect(root.querySelectorAll('.net .net-sticker')).toHaveLength(54);
+      expect(buttonNamed(root, 'Yes, keep going')).toBeDefined();
+      expect(buttonNamed(root, 'No, it looks different')).toBeDefined();
+    });
   });
 });

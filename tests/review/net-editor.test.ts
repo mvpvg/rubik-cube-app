@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import Cube from 'cubejs';
-import { session } from '../../src/app/session';
-import { CENTER_INDEX, COLOR_NAME, toColors, type Color } from '../../src/cube/facelets';
+import { loadSession, saveSession, session, setCube, setLearn, type RGB } from '../../src/app/session';
+import { applyMoves, CENTER_INDEX, COLOR_NAME, SOLVED, toColors, type Color, type Face } from '../../src/cube/facelets';
 import { reviewScreen } from '../../src/review/net-editor';
 
 function mount(param?: string): HTMLElement {
@@ -19,9 +19,8 @@ const zoomSquares = (root: HTMLElement) => [...root.querySelectorAll<HTMLButtonE
 
 describe('review screen', () => {
   beforeEach(() => {
-    session.samples = null;
-    session.colors = null;
-    session.facelets = null;
+    localStorage.clear();
+    loadSession();
   });
 
   it('a valid scanned cube enables both Solve it and Learn it', () => {
@@ -89,13 +88,99 @@ describe('review screen', () => {
     expect(button(root, 'Learn it').disabled).toBe(false);
   });
 
+  const SIDES: Color[] = ['W', 'R', 'G', 'Y', 'O', 'B'];
+  const type = (root: HTMLElement, index: number, color: Color) => {
+    openSide(root, SIDES[Math.floor(index / 9)]);
+    zoomSquares(root)[index % 9].click();
+    button(root, COLOR_NAME[color]).click();
+  };
+  const netText = (root: HTMLElement) => [...root.querySelectorAll('.net-sticker')].map((s) => s.textContent).join('');
+  // Camera samples of a solved cube: if the color match ran on them, every side would turn one color.
+  const RGB_OF: Record<Face, RGB> = {
+    U: [255, 255, 255], R: [196, 30, 58], F: [0, 158, 96], D: [255, 213, 0], L: [255, 88, 0], B: [0, 81, 186],
+  };
+  const solvedSamples = () => SOLVED.split('').map((f) => RGB_OF[f as Face]);
+
+  describe('saving each step', () => {
+    it('a pick is saved: after a reload the pick and the other "check me" rings are still there, and the colors are not matched again', () => {
+      const colors = toColors(Cube.random().asString());
+      session.samples = solvedSamples();
+      session.colors = colors;
+      session.checkMe = [18, 19];
+      saveSession();
+      let root = mount();
+      const other: Color = colors[18] === 'B' ? 'W' : 'B';
+      type(root, 18, other);
+      loadSession();
+      root = mount();
+      openSide(root, 'G');
+      expect(zoomSquares(root)[0].textContent).toBe(other);
+      expect(zoomSquares(root)[0].classList.contains('check')).toBe(false);
+      expect(zoomSquares(root)[1].classList.contains('check')).toBe(true);
+      expect(netText(root)).toBe(colors.map((c, i) => (i === 18 ? other : c)).join(''));
+      expect(session.route).toBe('review');
+    });
+
+    it('after a full scan, Solve it and Back keep the child\'s colors and the saved samples', () => {
+      const colors = toColors(Cube.random().asString());
+      session.samples = solvedSamples();
+      session.colors = colors;
+      saveSession();
+      button(mount(), 'Solve it').click();
+      loadSession();
+      const root = mount();
+      expect(netText(root)).toBe(colors.join(''));
+      expect(session.samples).toEqual(solvedSamples());
+    });
+
+    it('opening the color check records it as the step to come back to', () => {
+      session.colors = toColors(Cube.random().asString());
+      session.route = 'learn';
+      saveSession();
+      mount();
+      loadSession();
+      expect(session.route).toBe('review');
+    });
+  });
+
+  describe('typing colors', () => {
+    it('5 typed colors come back after a reload, and the next pick adds to them', () => {
+      const truth = toColors(Cube.random().asString());
+      let root = mount('manual');
+      const picks = [0, 1, 2, 3, 5];
+      for (const i of picks) type(root, i, truth[i]);
+      loadSession();
+      root = mount('manual');
+      openSide(root, 'W');
+      expect(zoomSquares(root).map((s) => s.textContent).slice(0, 6)).toEqual([truth[0], truth[1], truth[2], truth[3], 'W', truth[5]]);
+      type(root, 6, truth[6]);
+      loadSession();
+      expect(picks.every((i) => session.colors![i] === truth[i])).toBe(true);
+      expect(session.colors![6]).toBe(truth[6]);
+      expect(session.route).toBe('review/manual');
+    });
+
+    it('opening typing leaves other saved work alone until the first pick, which replaces it', () => {
+      const cube = applyMoves(SOLVED, 'R U');
+      session.samples = solvedSamples();
+      session.colors = toColors(cube);
+      setCube(cube);
+      setLearn(0, 0);
+      const root = mount('manual');
+      loadSession();
+      expect(session.facelets).toBe(cube);
+      expect(netText(root).replace(/[^?]/g, '')).toHaveLength(48);
+      type(root, 0, 'W');
+      loadSession();
+      expect(session.facelets).toBeNull();
+      expect(session.learn).toBeNull();
+      expect(session.samples).toBeNull();
+      expect(session.colors![0]).toBe('W');
+      expect(session.colors!.filter(Boolean)).toHaveLength(7);
+    });
+  });
+
   describe('smart fill while typing', () => {
-    const SIDES: Color[] = ['W', 'R', 'G', 'Y', 'O', 'B'];
-    const type = (root: HTMLElement, index: number, color: Color) => {
-      openSide(root, SIDES[Math.floor(index / 9)]);
-      zoomSquares(root)[index % 9].click();
-      button(root, COLOR_NAME[color]).click();
-    };
     // Corner UFR is squares 8, 9, 20; type two and the third is forced.
     const corner = [8, 9, 20];
 
@@ -127,6 +212,22 @@ describe('review screen', () => {
       type(root, 9, wrong);
       expect(root.querySelectorAll('.net .auto-dot')).toHaveLength(0);
       expect(root.querySelector('.auto-legend')?.hasAttribute('hidden')).toBe(true);
+      openSide(root, 'G');
+      expect(zoomSquares(root)[2].textContent).toBe('?');
+    });
+
+    it('a filled square keeps its dot after a reload, and changing the earlier pick still clears it', () => {
+      const truth = toColors(Cube.random().asString());
+      let root = mount('manual');
+      for (let i = 0; i < 54; i++) if (!CENTER_INDEX.includes(i) && !corner.includes(i)) type(root, i, truth[i]);
+      type(root, 8, truth[8]);
+      type(root, 9, truth[9]);
+      loadSession();
+      root = mount('manual');
+      expect(root.querySelectorAll('.net .auto-dot')).toHaveLength(1);
+      const wrong: Color = (['W', 'Y'] as Color[]).find((c) => c !== truth[9] && c !== truth[8])!;
+      type(root, 9, wrong);
+      expect(root.querySelectorAll('.net .auto-dot')).toHaveLength(0);
       openSide(root, 'G');
       expect(zoomSquares(root)[2].textContent).toBe('?');
     });

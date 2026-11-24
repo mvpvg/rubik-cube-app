@@ -1,9 +1,10 @@
 import './scan.css';
 import { go, type Cleanup } from '../app/router';
-import { session, type RGB } from '../app/session';
+import { saveSession, session, startNewWork, type RGB } from '../app/session';
 import { COLOR_HEX, COLOR_NAME } from '../cube/facelets';
 import { h, icon } from '../ui/dom';
 import { grabCells, startCamera, stopCamera } from './camera';
+import { classify } from './classify';
 import { ScanFlow, STEPS, turnFor } from './scan-flow';
 import { turnPicture } from './turn-picture';
 
@@ -12,6 +13,7 @@ const rgbCss = ([r, g, b]: RGB) => `rgb(${r},${g},${b})`;
 
 export function scanScreen(root: HTMLElement): Cleanup {
   const flow = new ScanFlow();
+  let started = false; // opening the scan never touches saved work; the first picture does
   const canvas = document.createElement('canvas');
   const previewCanvas = document.createElement('canvas');
   const video = h('video', { class: 'scan-video', playsinline: true, muted: true, autoplay: true });
@@ -64,11 +66,22 @@ export function scanScreen(root: HTMLElement): Cleanup {
     anyway.hidden = true;
   }
 
+  // Each accepted picture is saved. The sixth also runs the color match, in the same save, so the
+  // color check only ever reads saved colors and a refresh cannot run the match twice.
   function next(): void {
-    if (flow.done) {
-      session.samples = flow.samples();
-      go('review');
-    } else show();
+    const samples = flow.samples();
+    const step = flow.done
+      ? { samples, ...classify(samples as RGB[]), filled: [], route: 'review' }
+      : { samples, route: 'scan' };
+    if (started) {
+      Object.assign(session, step);
+      saveSession();
+    } else {
+      started = true;
+      startNewWork(step); // the old work is replaced here, at the first picture
+    }
+    if (flow.done) go('review');
+    else show();
   }
 
   function capture(): void {

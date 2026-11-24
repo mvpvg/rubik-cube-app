@@ -101,13 +101,13 @@ describe('saved session', () => {
   });
 
   it('counts one saved picture and nothing else as work to keep', () => {
-    session.samples = samples(1) as RGB[];
+    session.samples = samples(1);
     expect(isFinished()).toBe(false);
     expect(hasWorkToKeep()).toBe(true);
   });
 
   it('keeps 3 scanned sides through a save and a load, with the other 27 squares still empty', () => {
-    session.samples = samples(3) as RGB[];
+    session.samples = samples(3);
     saveSession();
     loadSession();
     expect(session.samples).toEqual(samples(3));

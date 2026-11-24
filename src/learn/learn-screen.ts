@@ -1,8 +1,8 @@
 import './learn.css';
 import { go, type Cleanup } from '../app/router';
-import { session } from '../app/session';
-import { load, save } from '../app/storage';
-import { invertMoves } from '../cube/facelets';
+import { session, setLearn } from '../app/session';
+import { applyMoves, invertMoves, toColors } from '../cube/facelets';
+import { netMap } from '../review/net-editor';
 import { solveInWorker } from '../solve/fast-solve';
 import { h, icon } from '../ui/dom';
 import { holdNoteFor } from '../ui/hold';
@@ -10,9 +10,6 @@ import { moveWords, prettyMove } from '../ui/move-words';
 import { moreHelpLink } from '../ui/more-help';
 import { CubePlayer, FULL_MASK } from '../ui/player';
 import { firstUnfinishedStage, solveBeginner, STAGES, type StageId, type StagePlan } from './beginner-solver';
-
-type Progress = { cube: string; stage: number; move: number };
-const KEY = 'learn.progress';
 
 interface FlatMove { move: string; sub: number; inSub: number }
 
@@ -28,7 +25,7 @@ const STAGE_MASKS: Partial<Record<StageId, string>> = {
 };
 
 
-export function learnScreen(root: HTMLElement): Cleanup | void {
+export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
   const scanned = session.facelets;
   if (!scanned) {
     go('home');
@@ -48,7 +45,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
     ));
     return;
   }
-  const saved = load<Progress>(KEY);
+  const saved = session.learn;
   // Progress belongs to this cube. A new scan starts at the first stage it has not finished.
   let stage: number;
   let pos: number;
@@ -68,6 +65,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
   const practiceLink = h('button', { class: 'link', style: 'align-self:flex-start;padding:4px 0' }, 'Practice this stage');
   const hold = h('div', {});
   const player = new CubePlayer('3D cube showing this stage');
+  const box = h('div', { class: 'player-box' }, player.el);
   const card = h('div', { class: 'card', 'aria-live': 'polite' });
   const controls = h('div', { class: 'controls' });
 
@@ -81,7 +79,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
       ),
       h('div', { style: 'display:flex;flex-direction:column;gap:6px' }, stageLabel, title, goal, practiceLink),
       hold,
-      h('div', { class: 'player-box' }, player.el),
+      box,
       card,
       controls,
     ),
@@ -98,7 +96,7 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
   }
 
   function keep(): void {
-    save(KEY, { cube, stage, move: pos } satisfies Progress);
+    setLearn(stage, pos);
   }
 
   function syncButtons(): void {
@@ -211,15 +209,78 @@ export function learnScreen(root: HTMLElement): Cleanup | void {
     playCurrent();
   }
 
-  render();
+  // "Keep going" opens the cube check first: does the real cube still look like the saved step?
+  let asking = param === 'check' && stage < plans.length;
+  let looked = false; // the second look: the current move has been played once
+  let noView = false; // no 3D cube (the solver or the 3D view failed), so the check shows a flat map
+
+  function hasMove(): boolean {
+    return pos < flatten(plans[stage]).length;
+  }
+
+  // The check rests before the current move. "No, it looks different" plays that move and asks
+  // once more, because the child may have done it before leaving. With no current move there is no second look.
+  function ask(): void {
+    const done = pos + (looked ? 1 : 0);
+    if (!base && !noView) {
+      box.style.display = 'none';
+      card.replaceChildren(h('p', { class: 'sub', style: 'text-align:center' }, 'Getting your cube ready…'));
+      controls.replaceChildren();
+      return;
+    }
+    box.style.display = noView ? 'none' : '';
+    const now = toColors(applyMoves(cube, [...priorMoves(stage), ...flatten(plans[stage]).slice(0, done).map((f) => f.move)]));
+    card.className = 'card cheer';
+    card.replaceChildren(
+      ...(noView ? [netMap(now, 'Your cube as a flat map')] : []),
+      h('div', { class: 'h1' }, 'Does your cube look like this?'),
+    );
+    controls.replaceChildren(
+      looked || !hasMove()
+        ? h('button', { class: 'btn btn-ghost', onclick: () => go('scan') }, 'No, scan it again')
+        : h('button', { class: 'btn btn-ghost', onclick: lookAgain }, 'No, it looks different'),
+      h('button', { class: 'btn btn-primary', onclick: keepGoing }, 'Yes, keep going'),
+    );
+  }
+
+  function lookAgain(): void {
+    looked = true;
+    playCurrent();
+    ask();
+    syncButtons();
+  }
+
+  function keepGoing(): void {
+    asking = false;
+    // A refresh from here on shows the step without asking again.
+    history.replaceState(null, '', '#/learn');
+    if (looked) {
+      pos++;
+      keep();
+    }
+    render();
+    playCurrent();
+  }
+
+  session.route = 'learn';
+  keep();
+  if (asking) ask();
+  else render();
   let stopped = false;
+  const noCube = () => {
+    if (stopped || !asking) return;
+    noView = true;
+    ask();
+  };
+  player.ready.catch(noCube);
   solveInWorker(cube).then((solution) => {
     if (stopped) return;
     base = invertMoves(solution);
     loadPlayer();
-    playCurrent();
+    if (asking) ask();
+    else playCurrent();
     syncButtons();
-  }).catch(() => undefined);
+  }).catch(noCube);
 
   return () => {
     stopped = true;

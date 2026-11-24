@@ -3,23 +3,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // The 3D player needs WebGL and the solver needs a worker; the mocks record what the screen asks for.
 const t = vi.hoisted(() => ({
   playAt: [] as number[],
-  load: [] as { setup: string[]; moves: string[] }[],
+  load: [] as { setup: string[]; moves: string[]; done?: number }[],
+  solverCalls: 0,
   resolve: (_moves: string[]) => {},
 }));
 
 vi.mock('../../src/ui/player', () => ({
   CubePlayer: class {
     el = document.createElement('div');
-    load(setup: string[], moves: string[]) { t.load.push({ setup, moves }); }
+    ready = Promise.resolve();
+    load(setup: string[], moves: string[], done = 0) { t.load.push(done ? { setup, moves, done } : { setup, moves }); }
     playAt(index: number) { t.playAt.push(index); return 1000; }
     dispose() {}
   },
 }));
 vi.mock('../../src/solve/fast-solve', () => ({
-  solveInWorker: () => new Promise<string[]>((r) => { t.resolve = r; }),
+  solveInWorker: () => { t.solverCalls++; return new Promise<string[]>((r) => { t.resolve = r; }); },
 }));
 
-const { session } = await import('../../src/app/session');
+const { loadSession, session, setCube, setSolve } = await import('../../src/app/session');
+const { applyMoves, invertMoves, SOLVED } = await import('../../src/cube/facelets');
 const { solveScreen } = await import('../../src/solve/solve-screen');
 
 const button = (root: HTMLElement, name: string) =>
@@ -44,7 +47,9 @@ describe('solve screen', () => {
     vi.useFakeTimers();
     t.playAt = [];
     t.load = [];
+    t.solverCalls = 0;
     session.facelets = 'scrambled';
+    session.solve = null;
   });
   afterEach(() => vi.useRealTimers());
 
@@ -109,5 +114,94 @@ describe('solve screen', () => {
     await moveEnds();
     tap(root, 'Next move');
     expect(counter(root)).toBe('Move 3 of 3');
+  });
+
+  describe('saved position', () => {
+    // A real cube and the 6 moves that solve it, so the saved list passes the check on load.
+    const SCRAMBLE = ['R', 'U', "F'", 'L', 'D2', 'B'];
+    const CUBE = applyMoves(SOLVED, SCRAMBLE);
+    const MOVES = invertMoves(SCRAMBLE);
+    const mountAt = (param?: string) => {
+      const root = document.createElement('main');
+      document.body.replaceChildren(root);
+      solveScreen(root, param);
+      return root;
+    };
+    const yes = (root: HTMLElement) => tap(root, 'Yes, keep going');
+
+    beforeEach(() => {
+      localStorage.clear();
+      loadSession();
+      setCube(CUBE);
+      location.hash = '#/solve/check';
+    });
+
+    it('at move 4, a reload shows move 4 and plays it without asking the solver', async () => {
+      t.solverCalls = 0;
+      const root = mountAt();
+      t.resolve(MOVES);
+      await vi.advanceTimersByTimeAsync(0);
+      for (let i = 0; i < 3; i++) {
+        await moveEnds();
+        tap(root, 'Next move');
+      }
+      expect(counter(root)).toBe('Move 4 of 6');
+      loadSession();
+      t.solverCalls = 0;
+      t.playAt = [];
+      const again = mountAt();
+      expect(counter(again)).toBe('Move 4 of 6');
+      expect(t.playAt).toEqual([3]);
+      expect(t.solverCalls).toBe(0);
+      expect(again.textContent).not.toContain('Does your cube look like this?');
+    });
+
+    it('a saved position for a different cube is not used: it starts at move 1 and asks the solver', async () => {
+      setCube(applyMoves(SOLVED, 'R U'));
+      session.solve = { cube: CUBE, moves: MOVES, position: 3 };
+      t.solverCalls = 0;
+      const root = mountAt();
+      expect(t.solverCalls).toBe(1);
+      t.resolve(['U\'', 'R\'']);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(counter(root)).toBe('Move 1 of 2');
+    });
+
+    it('the cube check at position 3 shows the cube after 3 moves with nothing playing; "Yes, keep going" shows move 4 and plays it', async () => {
+      setSolve(MOVES, 3);
+      const root = mountAt('check');
+      expect(root.textContent).toContain('Does your cube look like this?');
+      expect(t.load).toEqual([{ setup: invertMoves(MOVES), moves: MOVES, done: 3 }]);
+      expect(t.playAt).toEqual([]);
+      expect(button(root, 'Next move')).toBeUndefined();
+      yes(root);
+      expect(counter(root)).toBe('Move 4 of 6');
+      expect(t.playAt).toEqual([3]);
+      expect(location.hash).toBe('#/solve');
+    });
+
+    it('"No, it looks different" plays move 4 and asks again; then "Yes, keep going" shows move 5 and saves position 4', async () => {
+      setSolve(MOVES, 3);
+      const root = mountAt('check');
+      tap(root, 'No, it looks different');
+      expect(t.playAt).toEqual([3]);
+      expect(root.textContent).toContain('Does your cube look like this?');
+      expect(button(root, 'Yes, keep going').disabled).toBe(true);
+      await moveEnds();
+      yes(root);
+      expect(counter(root)).toBe('Move 5 of 6');
+      expect(t.playAt).toEqual([3, 4]);
+      loadSession();
+      expect(session.solve?.position).toBe(4);
+    });
+
+    it('"No, scan it again" after the second look goes to the scan', async () => {
+      setSolve(MOVES, 3);
+      const root = mountAt('check');
+      tap(root, 'No, it looks different');
+      await moveEnds();
+      tap(root, 'No, scan it again');
+      expect(location.hash).toBe('#/scan');
+    });
   });
 });

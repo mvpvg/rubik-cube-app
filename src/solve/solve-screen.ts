@@ -1,25 +1,34 @@
 import { go, type Cleanup } from '../app/router';
-import { session } from '../app/session';
-import { COLOR_HEX, invertMoves } from '../cube/facelets';
+import { saveSession, session, setSolve } from '../app/session';
+import { applyMoves, COLOR_HEX, invertMoves, toColors } from '../cube/facelets';
+import { netMap } from '../review/net-editor';
 import { h, icon } from '../ui/dom';
 import { holdNote } from '../ui/hold';
 import { moveWords, prettyMove } from '../ui/move-words';
 import { CubePlayer } from '../ui/player';
 import { solveInWorker } from './fast-solve';
 
-export function solveScreen(root: HTMLElement): Cleanup | void {
-  const state = session.facelets;
-  if (!state) {
+export function solveScreen(root: HTMLElement, param?: string): Cleanup | void {
+  const scanned = session.facelets;
+  if (!scanned) {
     go('home');
     return;
   }
+  const state: string = scanned;
+  session.route = 'solve';
+  saveSession();
+  // A saved move list for this cube is used as it is, so "move k" means the same move after a reload.
+  const saved = session.solve?.cube === state ? session.solve : null;
+  // "Keep going" opens the cube check first: does the real cube still look like the saved step?
+  let asking = param === 'check' && saved !== null && saved.position < saved.moves.length;
 
   const title = h('h1', {}, 'Working it out…');
   const counter = h('div', { class: 'muted' }, '');
   const player = new CubePlayer('3D cube showing your moves');
   const bigMove = h('div', { class: 'move-big', 'aria-live': 'polite' }, '');
   const words = h('div', { class: 'move-words' }, '');
-  const card = h('div', { class: 'card' }, counter, h('div', { class: 'move-card' }, bigMove, words));
+  const moveCard = h('div', { class: 'move-card' }, bigMove, words);
+  const card = h('div', { class: 'card' }, counter, moveCard);
   const backBtn = h('button', { class: 'btn btn-ghost' }, icon('back', 20), 'Back');
   const nextBtn = h('button', { class: 'btn btn-primary' }, 'Next move', icon('next', 20));
   const againBtn = h('button', { class: 'btn btn-ghost btn-again' }, icon('play', 20), 'Show again');
@@ -54,6 +63,7 @@ export function solveScreen(root: HTMLElement): Cleanup | void {
   // so a fast double tap cannot skip a move unseen.
   function show(k: number): void {
     cur = k;
+    setSolve(moves, k);
     update();
     if (k < moves.length) {
       locked = true;
@@ -77,11 +87,9 @@ export function solveScreen(root: HTMLElement): Cleanup | void {
       );
       return;
     }
-    if (card.classList.contains('done-card')) {
-      card.classList.remove('done-card');
-      card.replaceChildren(counter, h('div', { class: 'move-card' }, bigMove, words));
-      controls.replaceChildren(againBtn, backBtn, nextBtn);
-    }
+    card.classList.remove('done-card');
+    card.replaceChildren(counter, moveCard);
+    controls.replaceChildren(againBtn, backBtn, nextBtn);
     const move = moves[cur];
     counter.textContent = `Move ${cur + 1} of ${total}`;
     bigMove.textContent = prettyMove(move);
@@ -92,14 +100,64 @@ export function solveScreen(root: HTMLElement): Cleanup | void {
   nextBtn.addEventListener('click', () => show(cur + 1));
   againBtn.addEventListener('click', () => show(cur));
 
-  let stopped = false;
-  solveInWorker(state).then((solution) => {
-    if (stopped) return;
+  let looked = false; // the second look: the current move has been played once
+  let noView = false; // the 3D cube could not load, so the check shows a flat map instead
+
+  // The cube check rests after the moves done so far. "No, it looks different" plays the current
+  // move and asks once more, because the child may have done that move before leaving.
+  function ask(): void {
+    const done = cur + (looked ? 1 : 0);
+    card.classList.remove('done-card');
+    card.replaceChildren(
+      ...(noView ? [netMap(toColors(applyMoves(state, moves.slice(0, done))), 'Your cube as a flat map')] : []),
+      h('div', { class: 'h1', style: 'text-align:center' }, 'Does your cube look like this?'),
+    );
+    controls.replaceChildren(
+      looked
+        ? h('button', { class: 'btn btn-ghost', onclick: () => go('scan') }, 'No, scan it again')
+        : h('button', { class: 'btn btn-ghost', onclick: lookAgain }, 'No, it looks different'),
+      h('button', { class: 'btn btn-primary', onclick: () => keepGoing(done) }, 'Yes, keep going'),
+    );
+  }
+
+  function lookAgain(): void {
+    const ms = player.playAt(cur);
+    looked = true;
+    ask();
+    // Both answers wait until the move has played, so a double tap cannot skip it.
+    const answers = [...controls.querySelectorAll('button')];
+    answers.forEach((b) => { b.disabled = true; });
+    clearTimeout(unlock);
+    unlock = setTimeout(() => answers.forEach((b) => { b.disabled = false; }), ms);
+  }
+
+  function keepGoing(k: number): void {
+    asking = false;
+    // A refresh from here on shows the move without asking again.
+    history.replaceState(null, '', '#/solve');
+    show(k);
+  }
+
+  player.ready.catch(() => {
+    noView = true;
+    if (asking) ask();
+  });
+
+  function begin(solution: string[], at: number): void {
     moves = solution;
     title.textContent = solution.length === 0 ? 'Already solved!' : `${solution.length} moves to solve it`;
-    player.load(invertMoves(solution), solution);
+    player.load(invertMoves(solution), solution, at);
     locked = false;
-    show(0);
+    cur = at;
+    if (asking) ask();
+    else show(at);
+  }
+
+  let stopped = false;
+  if (saved) begin(saved.moves, saved.position);
+  else solveInWorker(state).then((solution) => {
+    if (stopped) return;
+    begin(solution, 0);
   }).catch(() => {
     if (stopped) return;
     title.textContent = 'Something went wrong';
