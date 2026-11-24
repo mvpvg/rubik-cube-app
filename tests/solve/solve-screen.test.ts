@@ -6,6 +6,7 @@ const t = vi.hoisted(() => ({
   load: [] as { setup: string[]; moves: string[]; done?: number }[],
   solverCalls: 0,
   resolve: (_moves: string[]) => {},
+  viewReady: Promise.resolve(), // when the 3D view has loaded
 }));
 
 vi.mock('../../src/ui/player', () => ({
@@ -13,7 +14,7 @@ vi.mock('../../src/ui/player', () => ({
     el = document.createElement('div');
     ready = Promise.resolve();
     load(setup: string[], moves: string[], done = 0) { t.load.push(done ? { setup, moves, done } : { setup, moves }); }
-    playAt(index: number) { t.playAt.push(index); return 1000; }
+    playAt(index: number) { t.playAt.push(index); return t.viewReady.then(() => 1000); }
     dispose() {}
   },
 }));
@@ -51,8 +52,22 @@ describe('solve screen', () => {
     t.solverCalls = 0;
     session.facelets = 'scrambled';
     session.solve = null;
+    t.viewReady = Promise.resolve();
   });
   afterEach(() => vi.useRealTimers());
+
+  it('keeps Next locked while the 3D view is still loading, so move 1 is not cut off', async () => {
+    let loaded = () => {};
+    t.viewReady = new Promise((r) => { loaded = r; });
+    const root = await mountSolved();
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(button(root, 'Next move').disabled).toBe(true);
+    loaded();
+    await vi.advanceTimersByTimeAsync(999);
+    expect(button(root, 'Next move').disabled).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(button(root, 'Next move').disabled).toBe(false);
+  });
 
   it('shows move 1 and plays it as soon as the moves are known', async () => {
     const root = await mountSolved();

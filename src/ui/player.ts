@@ -88,13 +88,14 @@ export class CubePlayer {
   }
 
   // Shows the cube just before loaded move `index` and plays that move, once the 3D view is ready.
-  // Returns how long the turn takes at the current speed, so screens can lock their buttons until
-  // it ends: cubing.js plays a quarter turn in 1 s and a half turn in 1.5 s at normal speed, plus
-  // a short pause so the next move does not cut it off.
-  playAt(index: number): number {
+  // Resolves when the turn starts, with how long it takes, so screens lock their buttons until it
+  // ends even on a slow first load: cubing.js plays a quarter turn in 1 s and a half turn in 1.5 s
+  // at normal speed, plus a short pause so the next move does not cut it off. Without a 3D view
+  // there is nothing to wait for.
+  playAt(index: number): Promise<number> {
     this.done = index + 1;
-    void this.ready.then(() => this.render(true));
-    return (this.moves[index].includes('2') ? 1500 : 1000) / this.tempo + 200;
+    const ms = (this.moves[index].includes('2') ? 1500 : 1000) / this.tempo + 200;
+    return this.ready.then(() => { this.render(true); return ms; }, () => 0);
   }
 
   // Shows the cube after `done` moves; when animate is set, the last of those moves plays.

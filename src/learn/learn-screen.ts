@@ -121,7 +121,7 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
     if (!base || stage >= plans.length || pos >= flatten(plans[stage]).length) return;
     locked = true;
     clearTimeout(unlock);
-    unlock = setTimeout(() => { locked = false; syncButtons(); }, player.playAt(pos));
+    void player.playAt(pos).then((ms) => { unlock = setTimeout(() => { locked = false; syncButtons(); }, ms); });
     syncButtons();
   }
 

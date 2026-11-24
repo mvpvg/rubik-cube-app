@@ -65,6 +65,14 @@ describe('home', () => {
     expect(location.hash).toBe('#/scan');
   });
 
+  it('names Solve on the Welcome card when the child left before the moves were worked out', () => {
+    setCube(CUBE);
+    session.route = 'solve';
+    const root = mount();
+    expect(root.querySelector('.welcome')?.textContent).toContain('Solve');
+    expect(root.querySelector('.welcome')?.textContent).not.toContain('Checking the colors');
+  });
+
   it('finished work (Solve on its done card) shows no Welcome card', () => {
     setCube(CUBE);
     session.route = 'solve';

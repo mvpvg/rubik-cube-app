@@ -170,11 +170,12 @@ export function setLearn(stage: number, move: number): void {
 }
 
 // Solved work is not offered again, and replacing it needs no question.
+// Judged by the step the child is on, so Learn progress after a finished Solve is still kept.
 export function isFinished(): boolean {
-  const { facelets, solve, learn } = session;
+  const { facelets, solve, learn, route } = session;
   return (facelets !== null && isSolved(facelets))
-    || (solve !== null && solve.position === solve.moves.length)
-    || (learn !== null && learn.stage >= STAGES.length);
+    || (route === 'solve' && solve !== null && solve.position === solve.moves.length)
+    || (route === 'learn' && learn !== null && learn.stage >= STAGES.length);
 }
 
 // Any picture, color pick, or checked cube that is not finished.

@@ -16,8 +16,8 @@ const SIDES: Array<[string, string]> = [
 ];
 
 function stepName(route: string): string {
-  if (route === 'solve' && session.solve) return `Solve, move ${session.solve.position + 1}`;
-  if (route === 'learn' && session.learn) return `Learn, stage ${session.learn.stage + 1}`;
+  if (route === 'solve') return session.solve ? `Solve, move ${session.solve.position + 1}` : 'Solve';
+  if (route === 'learn') return session.learn ? `Learn, stage ${session.learn.stage + 1}` : 'Learn';
   if (route === 'scan') return 'Scanning your cube';
   if (route === 'review/manual') return 'Typing in the colors';
   return 'Checking the colors';

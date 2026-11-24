@@ -89,15 +89,27 @@ describe('saved session', () => {
 
   it('counts a solved Solve or a Learn past the last stage as finished, not as work to keep', () => {
     setCube(CUBE);
+    session.route = 'solve';
     setSolve(FIX, FIX.length);
     expect(isFinished()).toBe(true);
     expect(hasWorkToKeep()).toBe(false);
 
     clearAll();
     setCube(CUBE);
+    session.route = 'learn';
     setLearn(STAGES.length, 0);
     expect(isFinished()).toBe(true);
     expect(hasWorkToKeep()).toBe(false);
+  });
+
+  it('keeps Learn progress after a finished Solve as work to keep', () => {
+    setCube(CUBE);
+    session.route = 'solve';
+    setSolve(FIX, FIX.length);
+    session.route = 'learn';
+    setLearn(1, 0);
+    expect(isFinished()).toBe(false);
+    expect(hasWorkToKeep()).toBe(true);
   });
 
   it('counts one saved picture and nothing else as work to keep', () => {
@@ -182,7 +194,7 @@ describe('saved session', () => {
     loadSession();
     expect(session.learn).toEqual({ cube: CUBE, stage: 0, move: 0 });
 
-    put(KEY, record({ facelets: CUBE, learn: { cube: CUBE, stage: 99, move: 99 } }));
+    put(KEY, record({ route: 'learn', facelets: CUBE, learn: { cube: CUBE, stage: 99, move: 99 } }));
     loadSession();
     expect(session.learn).toEqual({ cube: CUBE, stage: STAGES.length, move: 0 });
     expect(isFinished()).toBe(true);

@@ -25,5 +25,5 @@ start();
 
 // An installed app can come back from the background after days, so the 7-day limit is checked again here.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && expireIfOld() && /^#\/(scan|review|solve|learn)\b/.test(window.location.hash)) go('home');
+  if (document.visibilityState === 'visible' && expireIfOld() && !/^#\/(practice|moves)\b/.test(window.location.hash)) go('home');
 });

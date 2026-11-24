@@ -17,7 +17,7 @@ vi.mock('../../src/ui/player', () => ({
     el = document.createElement('div');
     ready = Promise.resolve();
     load(_setup: string[], _moves: string[], done = 0) { t.load.push(done); }
-    playAt(index: number) { t.playAt.push(index); return 1000; }
+    playAt(index: number) { t.playAt.push(index); return Promise.resolve(1000); }
     dispose() {}
     highlight() {}
   },

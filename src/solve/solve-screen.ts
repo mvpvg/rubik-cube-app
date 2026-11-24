@@ -70,7 +70,7 @@ export function solveScreen(root: HTMLElement, param?: string): Cleanup | void {
     if (k < moves.length) {
       locked = true;
       clearTimeout(unlock);
-      unlock = setTimeout(() => { locked = false; syncButtons(); }, player.playAt(k));
+      void player.playAt(k).then((ms) => { unlock = setTimeout(() => { locked = false; syncButtons(); }, ms); });
     }
     syncButtons();
   }
@@ -123,14 +123,14 @@ export function solveScreen(root: HTMLElement, param?: string): Cleanup | void {
   }
 
   function lookAgain(): void {
-    const ms = player.playAt(cur);
+    const playing = player.playAt(cur);
     looked = true;
     ask();
     // Both answers wait until the move has played, so a double tap cannot skip it.
     const answers = [...controls.querySelectorAll('button')];
     answers.forEach((b) => { b.disabled = true; });
     clearTimeout(unlock);
-    unlock = setTimeout(() => answers.forEach((b) => { b.disabled = false; }), ms);
+    void playing.then((ms) => { unlock = setTimeout(() => answers.forEach((b) => { b.disabled = false; }), ms); });
   }
 
   function keepGoing(k: number): void {
