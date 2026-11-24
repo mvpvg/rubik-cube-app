@@ -8,10 +8,20 @@ export function load<T>(key: string): T | null {
   }
 }
 
-export function save(key: string, value: unknown): void {
+// Returns false when the write did not happen, so a caller can keep data it would otherwise remove.
+export function save(key: string, value: unknown): boolean {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
-    // Progress is simply not kept.
+    return false;
+  }
+}
+
+export function remove(...keys: string[]): void {
+  try {
+    for (const key of keys) window.localStorage.removeItem(key);
+  } catch {
+    // Nothing to keep working around.
   }
 }

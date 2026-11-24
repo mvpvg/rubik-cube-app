@@ -1,5 +1,6 @@
 import './styles.css';
-import { register, start } from './app/router';
+import { go, register, start } from './app/router';
+import { expireIfOld } from './app/session';
 import { homeScreen } from './app/home';
 import { movesScreen } from './help/moves-screen';
 import { learnScreen } from './learn/learn-screen';
@@ -19,3 +20,8 @@ register('moves', movesScreen);
 
 warmUpSolver();
 start();
+
+// An installed app can come back from the background after days, so the 7-day limit is checked again here.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && expireIfOld() && /^#\/(scan|review|solve|learn)\b/.test(window.location.hash)) go('home');
+});
