@@ -1,6 +1,8 @@
 # Cube Coach
 
 A phone web app that scans a Rubik's cube with the camera, solves it, and teaches the beginner method.
+**Live site: https://mvpvg.github.io/rubik-cube-app/**
+
 It is only static files. There is no server. Camera pictures never leave the phone.
 
 ## Run it on your computer
@@ -18,9 +20,13 @@ All the words a child sees live in `src/` next to each screen. Edit the text, sa
 
 ## Put it online (GitHub Pages)
 
-1. Create a GitHub repository and push this project to its `main` branch.
-2. In the repository, open Settings, then Pages, and set "Source" to "GitHub Actions".
-3. Every push to `main` now tests, builds, and publishes the site. The address is `https://<your-user>.github.io/<repo-name>/`.
+1. Push this project to the `main` branch of a GitHub repository.
+2. Turn on Pages once. Without this, the deploy step fails with `404 Not Found`:
+   ```bash
+   gh api -X POST repos/<your-user>/<repo-name>/pages -f build_type=workflow
+   ```
+   Or open Settings, then Pages, and set "Source" to "GitHub Actions".
+3. Every push to `main` now tests, builds, and publishes the site. This repo's address is https://mvpvg.github.io/rubik-cube-app/.
 
 ## Checks
 
