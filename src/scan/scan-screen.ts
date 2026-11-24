@@ -7,7 +7,7 @@ import { confirmDelete } from '../ui/confirm';
 import { h, icon } from '../ui/dom';
 import { grabCells, startCamera, stopCamera } from './camera';
 import { classify } from './classify';
-import { ScanFlow, STEPS, turnFor } from './scan-flow';
+import { cap, ScanFlow, STEPS, turnFor } from './scan-flow';
 import { turnPicture } from './turn-picture';
 
 const PREVIEW_MS = 250;
@@ -87,7 +87,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     sides.forEach((side, i) => {
       const taken = flow.taken(i), now = i === flow.index;
       const color = COLOR_NAME[STEPS[i].center];
-      const label = `${color[0].toUpperCase()}${color.slice(1)} side`;
+      const label = `${cap(color)} side`;
       side.style.background = taken || now ? COLOR_HEX[STEPS[i].center] : '';
       side.classList.toggle('now', now);
       side.disabled = now || !taken;

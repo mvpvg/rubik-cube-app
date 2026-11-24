@@ -22,7 +22,6 @@ const ROTATE: Record<string, { css: string; zero: string; arrow: string }> = {
   "x'": { css: 'rotateX(-90deg)', zero: 'rotateX(0deg)', arrow: '⤵' },
 };
 
-// "y2" is two "y" turns.
 const quarters = (alg: string) => parseMoves(alg).flatMap((m) => (m.endsWith('2') ? [m[0], m[0]] : [m]));
 
 export type TurnPicture = {

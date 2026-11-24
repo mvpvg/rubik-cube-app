@@ -15,7 +15,6 @@ const SIDES: Array<[string, string]> = [
   ['rotateX(-90deg) translateZ(80px)', COLOR_HEX.Y],
 ];
 
-// Names the saved step on the Welcome card.
 function stepName(route: string): string {
   if (route === 'solve' && session.solve) return `Solve, move ${session.solve.position + 1}`;
   if (route === 'learn' && session.learn) return `Learn, stage ${session.learn.stage + 1}`;
@@ -46,7 +45,6 @@ async function startNew(root: HTMLElement): Promise<void> {
   go('scan');
 }
 
-// A small strip under the buttons until the app is installed or "Not now" is tapped.
 function installHelper(slot: HTMLElement): void {
   const android = canInstall();
   if (isInstalled() || isDismissed() || !(android || isIPhone())) return;

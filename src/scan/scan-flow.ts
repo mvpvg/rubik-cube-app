@@ -34,7 +34,7 @@ const TURN_WORDS: Record<string, string> = {
   x: 'tip the bottom toward you',
 };
 const START = 'white on top and green facing you.';
-const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+export const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 // The words name the same turns as the picture, in the same order.
 function say(turns: string[], center: Color): string {
@@ -115,7 +115,6 @@ export class ScanFlow {
     this.reset();
   }
 
-  // The side keeps its old picture.
   keepOld(): void {
     if (this.back === null) return;
     this.index = this.back;

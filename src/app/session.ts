@@ -113,7 +113,6 @@ function migrate(): void {
   if (saveSession()) remove(OLD_CUBE, OLD_LEARN);
 }
 
-// Reads the saved work into `session`. Runs once when the app starts.
 export function loadSession(): void {
   const raw = load<unknown>(KEY);
   use(empty(), null);
