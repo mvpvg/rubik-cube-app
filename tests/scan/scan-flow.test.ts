@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ScanFlow, STEPS } from '../../src/scan/scan-flow';
+import { ScanFlow, STEPS, turnFor } from '../../src/scan/scan-flow';
 import { sampleGrid } from '../../src/scan/sample';
 import { applyMoves, SOLVED, type Face } from '../../src/cube/facelets';
 import type { RGB } from '../../src/app/session';
@@ -74,5 +74,27 @@ describe('scan flow', () => {
     }
     const expected = cube.split('').map((f) => RGB_OF[f as Face]);
     expect(flow.samples()).toEqual(expected);
+  });
+
+  it('each step keeps its hold, and both turn lists get there', () => {
+    const ID = Array.from({ length: 54 }, (_, i) => String.fromCharCode(48 + i)).join('');
+    expect(STEPS.map((s) => s.hold)).toEqual(HOLDS);
+    STEPS.forEach((step, i) => {
+      const goal = applyMoves(ID, step.hold);
+      expect(applyMoves(applyMoves(ID, STEPS[i - 1]?.hold ?? ''), step.turns)).toBe(goal);
+      expect(applyMoves(ID, step.startTurns)).toBe(goal);
+    });
+  });
+
+  it('white after orange is two turns: left, then tip the top toward you', () => {
+    expect(STEPS[4].turns).toEqual(['y', "x'"]);
+    expect(STEPS[4].turn).toMatch(/turn the cube left.*then tip the top toward you/i);
+  });
+
+  it('in order a step starts from the last hold; out of order it starts from white on top, green facing you', () => {
+    expect(turnFor(2, true)).toEqual({ from: 'y', turns: ['y'], words: STEPS[2].turn });
+    const out = turnFor(2, false);
+    expect(out).toEqual({ from: '', turns: ['y', 'y'], words: STEPS[2].startTurn });
+    expect(out.words).toMatch(/^Start with white on top and green facing you\. Turn the cube left\. Then turn the cube left\./);
   });
 });

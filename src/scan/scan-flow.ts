@@ -5,7 +5,11 @@ import { nearestColor } from './sample';
 export type Step = {
   center: Color; // color of the center sticker on the side to show
   topColor: Color; // color at the top edge of the picture
-  turn: string; // how to get the cube from the last picture to this one
+  hold: string; // whole-cube turns from white on top, green facing you
+  turns: string[]; // whole-cube turns from the last picture's hold, one at a time
+  startTurns: string[]; // whole-cube turns from white on top, green facing you
+  turn: string; // the words for `turns`
+  startTurn: string; // the words for `startTurns`
   hint: string; // short reminder under the headline
   cells: number[]; // sticker index (solver order) for each of the 9 grid cells, row by row
 };
@@ -22,17 +26,46 @@ function cellsFor(hold: string): number[] {
 
 // The child starts with white on top and green facing the camera.
 // "Turn the cube left" brings the right side to the front (a y turn).
-// White: from green, tip the top toward you (x'). Yellow: from green, tip the bottom toward you (x).
-const HOLDS: Array<Omit<Step, 'cells'> & { hold: string }> = [
-  { center: 'G', topColor: 'W', hold: '', turn: 'Hold white on top and green facing you.', hint: 'Keep white on top' },
-  { center: 'R', topColor: 'W', hold: 'y', turn: 'Turn the cube left. Red comes to the front.', hint: 'Keep white on top' },
-  { center: 'B', topColor: 'W', hold: 'y2', turn: 'Turn the cube left. Blue comes to the front.', hint: 'Keep white on top' },
-  { center: 'O', topColor: 'W', hold: "y'", turn: 'Turn the cube left. Orange comes to the front.', hint: 'Keep white on top' },
-  { center: 'W', topColor: 'B', hold: "x'", turn: 'Turn left once more to green. Then tip the top toward you.', hint: 'Blue on top, green at the bottom' },
-  { center: 'Y', topColor: 'G', hold: 'x', turn: 'Tip it back to green. Then tip the bottom toward you.', hint: 'Green on top' },
+// "Tip the top toward you" brings white to the front (x'). "Tip the bottom toward you" brings yellow to the front (x).
+const TURN_WORDS: Record<string, string> = {
+  y: 'turn the cube left',
+  "y'": 'turn the cube right',
+  "x'": 'tip the top toward you',
+  x: 'tip the bottom toward you',
+};
+const START = 'white on top and green facing you.';
+const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+
+// The words name the same turns as the picture, in the same order.
+function say(turns: string[], center: Color): string {
+  const said = turns.map((t, i) => cap(`${i ? 'then ' : ''}${TURN_WORDS[t]}.`));
+  return [...said, `${cap(COLOR_NAME[center])} comes to the front.`].join(' ');
+}
+
+const HOLDS: Array<Pick<Step, 'center' | 'topColor' | 'hold' | 'turns' | 'startTurns' | 'hint'>> = [
+  { center: 'G', topColor: 'W', hold: '', turns: [], startTurns: [], hint: 'Keep white on top' },
+  { center: 'R', topColor: 'W', hold: 'y', turns: ['y'], startTurns: ['y'], hint: 'Keep white on top' },
+  { center: 'B', topColor: 'W', hold: 'y2', turns: ['y'], startTurns: ['y', 'y'], hint: 'Keep white on top' },
+  { center: 'O', topColor: 'W', hold: "y'", turns: ['y'], startTurns: ["y'"], hint: 'Keep white on top' },
+  { center: 'W', topColor: 'B', hold: "x'", turns: ['y', "x'"], startTurns: ["x'"], hint: 'Blue on top, green at the bottom' },
+  { center: 'Y', topColor: 'G', hold: 'x', turns: ['x', 'x'], startTurns: ['x'], hint: 'Green on top' },
 ];
 
-export const STEPS: Step[] = HOLDS.map(({ hold, ...step }) => ({ ...step, cells: cellsFor(hold) }));
+export const STEPS: Step[] = HOLDS.map((step) => ({
+  ...step,
+  turn: step.turns.length ? say(step.turns, step.center) : `Hold ${START}`,
+  startTurn: step.startTurns.length ? `Start with ${START} ${say(step.startTurns, step.center)}` : `Hold ${START}`,
+  cells: cellsFor(step.hold),
+}));
+
+// Where the turn picture starts, the turns it plays, and the words for them.
+// A side out of order (taken again, or the first after reopening a scan) starts from white on top, green facing you.
+export function turnFor(index: number, inOrder: boolean): { from: string; turns: string[]; words: string } {
+  const step = STEPS[index];
+  return inOrder
+    ? { from: STEPS[index - 1]?.hold ?? '', turns: step.turns, words: step.turn }
+    : { from: '', turns: step.startTurns, words: step.startTurn };
+}
 
 export type CaptureResult =
   | { ok: true }

@@ -62,34 +62,30 @@
   text-align: center;
 }
 
-.scan-swatch {
-  flex: none;
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 26px;
-  font-weight: 800;
-  color: var(--on-accent);
-  border: 3px solid rgba(0, 0, 0, 0.25);
+/* Turn picture: a small cube that shows how to turn the whole cube to the next side. */
+.turn-picture { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.turn-picture .link { font-size: 16px; padding: 6px 4px; }
+.turn-stage { position: relative; width: 96px; height: 96px; perspective: 400px; display: flex; align-items: center; justify-content: center; }
+.turn-view { --turn-half: 26px; position: relative; width: 52px; height: 52px; transform-style: preserve-3d; transform: rotateX(-28deg) rotateY(-40deg); }
+.turn-cube { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 0.6s ease-in-out; }
+.turn-face { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 2px; background: #0C0D10; border-radius: 6px; }
+.turn-face > div { border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #0C0D10; }
+.turn-glow { animation: turn-glow 1.2s ease-in-out infinite alternate; }
+@keyframes turn-glow { from { box-shadow: 0 0 0 1px #fff; } to { box-shadow: 0 0 6px 3px #fff; } }
+/* With motion turned off the cube rests in its final pose, and arrows show the turns in order. */
+.turn-arrows { display: none; position: absolute; right: -4px; top: 0; flex-direction: column; font-size: 22px; line-height: 1; color: var(--text); }
+@media (prefers-reduced-motion: reduce) {
+  .turn-arrows { display: flex; }
+  .turn-glow { box-shadow: 0 0 0 3px #fff; }
 }
+
 .scan-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.scan-hint { display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--soft); }
-.scan-mini {
-  flex: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  border-top: 8px solid transparent;
-  box-shadow: 0 0 0 2px #0C0D10;
-}
+.scan-hint { display: flex; align-items: center; gap: 10px; font-size: 18px; color: var(--soft); }
 .scan-problem { margin: 0; color: var(--text); }
 .scan-problem[hidden] { display: none; }
 .scan-take { min-height: 64px; font-size: 22px; }
 .scan .btn[hidden] { display: none; }
 
 .scan { gap: 12px; }
-.scan .h1 { font-size: 26px; }
-.scan .sub { font-size: 15px; }
+.scan .h1 { font-size: 28px; }
+.scan .sub { font-size: 18px; }

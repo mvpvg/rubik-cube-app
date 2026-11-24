@@ -4,7 +4,8 @@ import { session, type RGB } from '../app/session';
 import { COLOR_HEX, COLOR_NAME } from '../cube/facelets';
 import { h, icon } from '../ui/dom';
 import { grabCells, startCamera, stopCamera } from './camera';
-import { ScanFlow, STEPS } from './scan-flow';
+import { ScanFlow, STEPS, turnFor } from './scan-flow';
+import { turnPicture } from './turn-picture';
 
 const PREVIEW_MS = 250;
 const rgbCss = ([r, g, b]: RGB) => `rgb(${r},${g},${b})`;
@@ -20,10 +21,9 @@ export function scanScreen(root: HTMLElement): Cleanup {
 
   const progress = STEPS.map(() => h('span', { class: 'scan-dot' }));
   const count = h('span', { class: 'muted' });
-  const swatch = h('div', { class: 'scan-swatch' });
+  const picture = turnPicture();
   const headline = h('h1', { class: 'h1' });
   const turn = h('p', { class: 'sub' });
-  const mini = h('span', { class: 'scan-mini' });
   const hint = h('span');
   const problem = h('p', { class: 'note scan-problem', role: 'alert', hidden: true });
   const anyway = h('button', { class: 'btn btn-ghost btn-wide', hidden: true, onclick: () => { flow.useAnyway(); next(); } }, 'Use it anyway');
@@ -37,8 +37,8 @@ export function scanScreen(root: HTMLElement): Cleanup {
         count,
       ),
       camera,
-      h('div', { class: 'row' }, swatch, h('div', { class: 'scan-text' }, headline, turn)),
-      h('div', { class: 'scan-hint' }, mini, hint),
+      h('div', { class: 'row' }, picture.el, h('div', { class: 'scan-text', 'aria-live': 'polite' }, headline, turn)),
+      h('div', { class: 'scan-hint' }, hint),
       problem,
       h('div', { class: 'spacer' }),
       anyway,
@@ -54,12 +54,11 @@ export function scanScreen(root: HTMLElement): Cleanup {
       dot.style.background = i <= flow.index ? COLOR_HEX[STEPS[i].center] : '';
     });
     count.textContent = `${flow.index + 1} of ${STEPS.length}`;
-    swatch.style.background = COLOR_HEX[step.center];
-    swatch.textContent = step.center;
+    // True: this side comes right after the last one taken. False starts from white on top, green facing you.
+    const { from, turns, words } = turnFor(flow.index, true);
+    picture.show(from, turns, step.center);
     headline.textContent = `Show the ${name} side`;
-    turn.textContent = step.turn;
-    mini.style.background = COLOR_HEX[step.center];
-    mini.style.borderTopColor = COLOR_HEX[step.topColor];
+    turn.textContent = words;
     hint.textContent = step.hint;
     problem.hidden = true;
     anyway.hidden = true;
@@ -110,6 +109,7 @@ export function scanScreen(root: HTMLElement): Cleanup {
 
   return () => {
     stopped = true;
+    picture.stop();
     window.clearInterval(timer);
     stopCamera(stream);
     video.srcObject = null;
