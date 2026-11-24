@@ -28,6 +28,8 @@ function median(values: number[]): number {
   return values[Math.floor(values.length / 2)];
 }
 
+export const rgbCss = ([r, g, b]: RGB) => `rgb(${r},${g},${b})`;
+
 export type Lab = [number, number, number];
 
 export function toLab([r, g, b]: RGB): Lab {

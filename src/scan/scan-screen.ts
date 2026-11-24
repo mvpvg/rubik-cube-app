@@ -8,10 +8,10 @@ import { h, icon } from '../ui/dom';
 import { grabCells, startCamera, stopCamera } from './camera';
 import { classify } from './classify';
 import { cap, ScanFlow, STEPS, turnFor } from './scan-flow';
+import { rgbCss } from './sample';
 import { turnPicture } from './turn-picture';
 
 const PREVIEW_MS = 250;
-const rgbCss = ([r, g, b]: RGB) => `rgb(${r},${g},${b})`;
 const REPLACE_WORDS = { question: 'Start over with this picture? Your saved cube will be deleted.', keep: 'Keep my cube', drop: 'Delete and start over' };
 
 let agreed = false;
