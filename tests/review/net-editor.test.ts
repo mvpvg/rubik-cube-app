@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import Cube from 'cubejs';
 import { loadSession, saveSession, session, setCube, setLearn, type RGB } from '../../src/app/session';
 import { applyMoves, CENTER_INDEX, COLOR_NAME, SOLVED, toColors, type Color, type Face } from '../../src/cube/facelets';
@@ -160,23 +160,54 @@ describe('review screen', () => {
       expect(session.route).toBe('review/manual');
     });
 
-    it('opening typing leaves other saved work alone until the first pick, which replaces it', () => {
+    // jsdom has no modal dialog; the real one is proven in the browser tests.
+    beforeAll(() => {
+      HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+      HTMLDialogElement.prototype.close = function () { this.open = false; };
+    });
+    const savedLearnWork = () => {
       const cube = applyMoves(SOLVED, 'R U');
       session.samples = solvedSamples();
       session.colors = toColors(cube);
       setCube(cube);
       setLearn(0, 0);
+      return cube;
+    };
+
+    it('opening typing leaves other saved work alone; the first pick asks, and "Delete and start over" replaces it, samples too, in one save', async () => {
+      const cube = savedLearnWork();
       const root = mount('manual');
       loadSession();
       expect(session.facelets).toBe(cube);
       expect(netText(root).replace(/[^?]/g, '')).toHaveLength(48);
       type(root, 0, 'W');
+      expect(root.querySelector('dialog')!.textContent).toContain('Your saved cube will be deleted.');
+      loadSession();
+      expect(session.facelets).toBe(cube);
+      const setItem = vi.spyOn(Storage.prototype, 'setItem');
+      button(root, 'Delete and start over').click();
+      await Promise.resolve();
+      expect(setItem).toHaveBeenCalledTimes(1);
+      setItem.mockRestore();
       loadSession();
       expect(session.facelets).toBeNull();
       expect(session.learn).toBeNull();
       expect(session.samples).toBeNull();
       expect(session.colors![0]).toBe('W');
       expect(session.colors!.filter(Boolean)).toHaveLength(7);
+      expect(netText(root).replace(/[^?]/g, '')).toHaveLength(47);
+    });
+
+    it('"Keep my cube" drops the pick and leaves the saved work as it was', async () => {
+      savedLearnWork();
+      const before = localStorage.getItem('cube.session');
+      const root = mount('manual');
+      type(root, 0, 'W');
+      button(root, 'Keep my cube').click();
+      await Promise.resolve();
+      expect(root.querySelector('dialog')).toBeNull();
+      expect(localStorage.getItem('cube.session')).toBe(before);
+      expect(netText(root).replace(/[^?]/g, '')).toHaveLength(48);
     });
   });
 

@@ -1,8 +1,9 @@
 import './scan.css';
-import { go, type Cleanup } from '../app/router';
-import { saveSession, session, startNewWork, type RGB } from '../app/session';
+import { go, goBack, type Cleanup } from '../app/router';
+import { hasWorkToKeep, saveSession, session, startNewWork, type RGB } from '../app/session';
 import { COLOR_HEX, COLOR_NAME } from '../cube/facelets';
 import { mergeSide } from '../review/merge-side';
+import { confirmDelete } from '../ui/confirm';
 import { h, icon } from '../ui/dom';
 import { grabCells, startCamera, stopCamera } from './camera';
 import { classify } from './classify';
@@ -11,6 +12,14 @@ import { turnPicture } from './turn-picture';
 
 const PREVIEW_MS = 250;
 const rgbCss = ([r, g, b]: RGB) => `rgb(${r},${g},${b})`;
+const REPLACE_WORDS = { question: 'Start over with this picture? Your saved cube will be deleted.', keep: 'Keep my cube', drop: 'Delete and start over' };
+
+let agreed = false;
+// "No, scan it again" at the cube check already agrees to replace the work, so the scan does not ask again.
+export function scanAgain(): void {
+  agreed = true;
+  go('scan');
+}
 
 export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   // `#/scan/<color>` takes that one side again from the color check, and goes back there.
@@ -23,9 +32,11 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   const toCheck = () => go('review', param);
   // A scan left part-way goes on from its saved sides, so its next picture replaces nothing.
   const continuing = !oneSide && session.route === 'scan';
-  const flow = new ScanFlow(oneSide || continuing ? session.samples : null);
+  let flow = new ScanFlow(oneSide || continuing ? session.samples : null);
   if (oneSide) flow.retake(only);
   let started = continuing; // opening the scan never touches saved work; the first picture does
+  const noQuestion = agreed;
+  agreed = false;
   const canvas = document.createElement('canvas');
   const previewCanvas = document.createElement('canvas');
   const video = h('video', { class: 'scan-video', playsinline: true, muted: true, autoplay: true });
@@ -51,7 +62,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   root.append(
     h('section', { class: 'screen scan' },
       h('div', { class: 'topbar' },
-        h('button', { class: 'icon-btn', 'aria-label': 'Back', onclick: () => (oneSide ? toCheck() : go('home')) }, icon('back')),
+        h('button', { class: 'icon-btn', 'aria-label': 'Back', onclick: () => (oneSide ? toCheck() : goBack()) }, icon('back')),
         oneSide ? null : count,
       ),
       // One side from the color check has one job, so nothing here leads away from it.
@@ -101,6 +112,16 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
       saveSession();
       return toCheck();
     }
+    if (started || noQuestion || !hasWorkToKeep()) return save();
+    // The picture waits here, unsaved, until the child agrees to delete the old work.
+    confirmDelete(root, REPLACE_WORDS).then((drop) => {
+      if (drop) return save();
+      flow = new ScanFlow();
+      show();
+    });
+  }
+
+  function save(): void {
     const samples = flow.samples();
     const step = flow.done
       ? { samples, ...classify(samples as RGB[]), filled: [], route: 'review' }

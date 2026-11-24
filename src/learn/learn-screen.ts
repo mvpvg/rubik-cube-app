@@ -3,6 +3,7 @@ import { go, type Cleanup } from '../app/router';
 import { session, setLearn } from '../app/session';
 import { applyMoves, invertMoves, toColors } from '../cube/facelets';
 import { netMap } from '../review/net-editor';
+import { scanAgain } from '../scan/scan-screen';
 import { solveInWorker } from '../solve/fast-solve';
 import { h, icon } from '../ui/dom';
 import { holdNoteFor } from '../ui/hold';
@@ -237,7 +238,7 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
     );
     controls.replaceChildren(
       looked || !hasMove()
-        ? h('button', { class: 'btn btn-ghost', onclick: () => go('scan') }, 'No, scan it again')
+        ? h('button', { class: 'btn btn-ghost', onclick: scanAgain }, 'No, scan it again')
         : h('button', { class: 'btn btn-ghost', onclick: lookAgain }, 'No, it looks different'),
       h('button', { class: 'btn btn-primary', onclick: keepGoing }, 'Yes, keep going'),
     );

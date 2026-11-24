@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { clearAll, session, setCube, setLearn, setSolve } from '../../src/app/session';
 import { homeScreen } from '../../src/app/home';
 import { applyMoves, invertMoves, SOLVED } from '../../src/cube/facelets';
@@ -16,6 +16,11 @@ const button = (root: HTMLElement, name: string) =>
   [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === name);
 
 describe('home', () => {
+  // jsdom has no modal dialog; the real one is proven in the browser tests.
+  beforeAll(() => {
+    HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+    HTMLDialogElement.prototype.close = function () { this.open = false; };
+  });
   beforeEach(() => {
     localStorage.clear();
     clearAll();
@@ -67,5 +72,36 @@ describe('home', () => {
     const root = mount();
     expect(root.textContent).not.toContain('Welcome back');
     expect(button(root, 'Scan my cube')).toBeDefined();
+  });
+
+  it('"Start a new cube" asks first: "Keep my cube" changes nothing, "Delete and start over" clears the work and opens the scan', async () => {
+    setCube(CUBE);
+    session.route = 'learn';
+    setLearn(2, 0);
+    const before = localStorage.getItem('cube.session');
+    const root = mount();
+    button(root, 'Start a new cube')!.click();
+    const dialog = root.querySelector('dialog')!;
+    expect(dialog.open).toBe(true);
+    expect(dialog.textContent).toContain('Your saved cube will be deleted.');
+    button(root, 'Keep my cube')!.click();
+    await Promise.resolve();
+    expect(root.querySelector('dialog')).toBeNull();
+    expect(location.hash).toBe('');
+    expect(localStorage.getItem('cube.session')).toBe(before);
+
+    button(root, 'Start a new cube')!.click();
+    button(root, 'Delete and start over')!.click();
+    await Promise.resolve();
+    expect(localStorage.getItem('cube.session')).toBeNull();
+    expect(session.learn).toBeNull();
+    expect(location.hash).toBe('#/scan');
+  });
+
+  it('with no saved work, "Scan my cube" opens the scan with no question', () => {
+    const root = mount();
+    button(root, 'Scan my cube')!.click();
+    expect(root.querySelector('dialog')).toBeNull();
+    expect(location.hash).toBe('#/scan');
   });
 });

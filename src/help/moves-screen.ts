@@ -1,5 +1,5 @@
 import './help.css';
-import { go, type Cleanup } from '../app/router';
+import { go, goBack, type Cleanup } from '../app/router';
 import { h, icon } from '../ui/dom';
 import { moveWords, prettyMove } from '../ui/move-words';
 import { CubePlayer } from '../ui/player';
@@ -23,7 +23,7 @@ export function movesScreen(root: HTMLElement): Cleanup {
     h('section', { class: 'screen moves' },
       h('div', { class: 'moves-top' },
         h('div', { class: 'topbar' },
-          h('button', { class: 'icon-btn', 'aria-label': 'Back', onclick: () => history.back() }, icon('back')),
+          h('button', { class: 'icon-btn', 'aria-label': 'Back', onclick: goBack }, icon('back')),
           h('h1', { style: 'font-size:24px' }, 'Moves'),
           h('span', { style: 'width:44px' }),
         ),

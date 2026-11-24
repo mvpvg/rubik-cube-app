@@ -2,6 +2,7 @@ import { go, type Cleanup } from '../app/router';
 import { saveSession, session, setSolve } from '../app/session';
 import { applyMoves, COLOR_HEX, invertMoves, toColors } from '../cube/facelets';
 import { netMap } from '../review/net-editor';
+import { scanAgain } from '../scan/scan-screen';
 import { h, icon } from '../ui/dom';
 import { holdNote } from '../ui/hold';
 import { moveWords, prettyMove } from '../ui/move-words';
@@ -114,7 +115,7 @@ export function solveScreen(root: HTMLElement, param?: string): Cleanup | void {
     );
     controls.replaceChildren(
       looked
-        ? h('button', { class: 'btn btn-ghost', onclick: () => go('scan') }, 'No, scan it again')
+        ? h('button', { class: 'btn btn-ghost', onclick: scanAgain }, 'No, scan it again')
         : h('button', { class: 'btn btn-ghost', onclick: lookAgain }, 'No, it looks different'),
       h('button', { class: 'btn btn-primary', onclick: () => keepGoing(done) }, 'Yes, keep going'),
     );

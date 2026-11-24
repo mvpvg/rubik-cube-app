@@ -1,8 +1,9 @@
+import { confirmDelete } from '../ui/confirm';
 import { h, icon } from '../ui/dom';
 import { COLOR_HEX } from '../cube/facelets';
 import { moreHelpLink } from '../ui/more-help';
 import { go } from './router';
-import { hasWorkToKeep, session } from './session';
+import { clearAll, hasWorkToKeep, session } from './session';
 
 const SIDES: Array<[string, string]> = [
   ['rotateX(90deg) translateZ(80px)', COLOR_HEX.W],
@@ -36,6 +37,14 @@ function welcome(route: string): HTMLElement {
   );
 }
 
+// Asks first; the scan then starts fresh, since a cleared session has no half-done scan to go on from.
+async function startNew(root: HTMLElement): Promise<void> {
+  const words = { question: 'Start a new cube? Your saved cube will be deleted.', keep: 'Keep my cube', drop: 'Delete and start over' };
+  if (!(await confirmDelete(root, words))) return;
+  clearAll();
+  go('scan');
+}
+
 export function homeScreen(root: HTMLElement): void {
   // Finished work (a solved cube) is not offered again.
   const route = hasWorkToKeep() ? session.route ?? 'review' : null;
@@ -55,7 +64,7 @@ export function homeScreen(root: HTMLElement): void {
       ),
       route ? welcome(route) : h('div', { class: 'home-hero' }, cube),
       route
-        ? h('button', { class: 'btn btn-ghost btn-wide', onclick: () => go('scan') }, icon('camera', 26), 'Start a new cube')
+        ? h('button', { class: 'btn btn-ghost btn-wide', onclick: () => startNew(root) }, icon('camera', 26), 'Start a new cube')
         : h('button', { class: 'btn btn-primary btn-wide', style: 'min-height:68px;font-size:22px', onclick: () => go('scan') },
           icon('camera', 26), 'Scan my cube'),
       h('button', { class: 'btn btn-ghost btn-wide', onclick: () => go('practice') }, 'Practice on a screen cube'),
