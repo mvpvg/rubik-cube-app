@@ -123,7 +123,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
       if (result.ok) {
         ok = true;
         message.textContent = checkMe.size > 0
-          ? 'This cube works. The squares with a dashed ring were hard to see, so check them once more.'
+          ? 'This cube works. Check the squares with a dashed ring once more.'
           : 'This cube works. Pick what you want to do.';
       } else {
         message.textContent = result.message;
@@ -167,7 +167,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
       picker.replaceChildren();
     } else {
       const current = colors[selected];
-      pickerLabel.textContent = checkMe.has(selected) ? 'This one was hard to see. Pick its color:' : 'Pick its color:';
+      pickerLabel.textContent = checkMe.has(selected) ? 'Check this one once more. Pick its color:' : 'Pick its color:';
       picker.replaceChildren(...COLORS.map((c) => h('button', {
         class: 'swatch', style: stickerStyle(c), 'aria-label': COLOR_NAME[c], 'aria-pressed': String(current === c),
         onclick: () => choose(c),

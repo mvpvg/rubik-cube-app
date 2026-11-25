@@ -44,6 +44,26 @@ export const EDGE_PIECES: Face[][] = [
   ['D', 'L'], ['D', 'B'], ['F', 'R'], ['F', 'L'], ['B', 'L'], ['B', 'R'],
 ];
 
+// Every way a piece can sit in a slot: the faces seen at each sticker position.
+export function placements(piece: Face[], corner: boolean): Face[][] {
+  if (!corner) return [piece, [piece[1], piece[0]]];
+  return [0, 1, 2].map((ori) => [0, 1, 2].map((j) => piece[(j - ori + 3) % 3]));
+}
+
+// Which piece a slot's colors show, or null when a color is missing or no real piece looks like that.
+export function pieceAt(stickers: (Color | null)[], pieces: Face[][], corner: boolean): number | null {
+  if (stickers.some((c) => c === null)) return null;
+  const faces = stickers.map((c) => FACE_OF_COLOR[c as Color]);
+  const found = pieces.findIndex((p) => placements(p, corner).some((pl) => pl.every((f, k) => f === faces[k])));
+  return found >= 0 ? found : null;
+}
+
+// Every corner and edge slot with the pieces that can sit in it.
+export const PIECE_SLOTS = [
+  ...CORNER_SLOTS.map((idx) => ({ idx, pieces: CORNER_PIECES, corner: true })),
+  ...EDGE_SLOTS.map((idx) => ({ idx, pieces: EDGE_PIECES, corner: false })),
+];
+
 export const faceOf = (i: number) => Math.floor(i / 9);
 export const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 

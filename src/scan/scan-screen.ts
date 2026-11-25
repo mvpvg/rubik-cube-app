@@ -9,7 +9,7 @@ import { keepScreenOn } from '../ui/wake-lock';
 import { grabCells, startCamera, stopCamera } from './camera';
 import { classify, sideColors } from './classify';
 import { cap, ScanFlow, STEPS, turnFor } from './scan-flow';
-import { rgbCss } from './sample';
+import { nearestColor, rgbCss } from './sample';
 import { turnPicture } from './turn-picture';
 
 const PREVIEW_MS = 250;
@@ -244,7 +244,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   function save(): void {
     const samples = flow.samples();
     const step = flow.done
-      ? { samples, ...classify(samples as RGB[]), filled: [], route: 'review' }
+      ? { samples, ...matchAll(samples as RGB[]), filled: [], route: 'review' }
       : { samples, route: 'scan' };
     if (started) {
       Object.assign(session, step);
@@ -255,6 +255,17 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     }
     if (flow.done) go('review', undefined, { replace: true });
     else show();
+  }
+
+  // The final match over all 54 samples. A square it reads differently from that side's check is flagged.
+  function matchAll(samples: RGB[]): ReturnType<typeof classify> {
+    const { colors, checkMe } = classify(samples);
+    STEPS.forEach((step) => {
+      const grid = step.cells.map((s) => samples[s]);
+      const seen = sideColors(grid, step.center, nearestColor(grid[4]) !== step.center);
+      step.cells.forEach((s, k) => { if (colors[s] !== seen[k] && !checkMe.includes(s)) checkMe.push(s); });
+    });
+    return { colors, checkMe };
   }
 
   function capture(): void {

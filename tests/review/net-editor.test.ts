@@ -62,6 +62,16 @@ describe('review screen', () => {
     expect(button(root, 'Solve it').disabled).toBe(false);
   });
 
+  it('asks the child to check the dashed-ring squares once more, in words that do not blame the light', () => {
+    session.colors = toColors(Cube.random().asString());
+    session.checkMe = [18];
+    const root = mount();
+    expect(root.querySelector('.review-msg')?.textContent).toBe('This cube works. Check the squares with a dashed ring once more.');
+    openSide(root, 'G');
+    zoomSquares(root)[0].click();
+    expect(root.textContent).toContain('Check this one once more. Pick its color:');
+  });
+
   it('middle squares cannot be changed', () => {
     session.colors = toColors(Cube.random().asString());
     const root = mount();
