@@ -1,4 +1,6 @@
 import './scan.css';
+import { readCubeLink } from '../app/cube-link';
+import { listen, newRoom } from '../app/relay';
 import { go, goBack, type Cleanup } from '../app/router';
 import { hasWorkToKeep, saveSession, session, startNewWork, type RGB } from '../app/session';
 import { COLOR_HEX, COLOR_NAME, faceOf, TEXT_ON, type Color } from '../cube/facelets';
@@ -120,6 +122,8 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   let noCamera = false;
   let pending: RGB[] | null = null; // the picture on the check, not saved yet
   let merged: ReturnType<typeof mergeSide> | null = null; // what Next saves for one side from the color check
+  // Leaving the screen removes the phone window without its close event, so the cleanup also stops this.
+  let stopWaiting = () => {};
 
   // Also Take it again: the flow never saw the picture on the check, so showing its state drops it.
   function show(): void {
@@ -284,19 +288,29 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     anyway.hidden = !result.canUseAnyway;
   }
 
-  // The QR code opens this app's scan on a phone. The site lives under a folder, so the path is kept.
+  // The QR code opens this app's scan on a phone, in a new room. The phone sends the cube to that room,
+  // and this window opens it. The site lives under a folder, so the path is kept.
   function openPhone(): void {
-    const link = `${location.origin}${location.pathname}#/scan`;
+    const room = newRoom();
+    const link = `${location.origin}${location.pathname}#/scan/${room}`;
     const code = h('div', { class: 'phone-qr' });
     const close = h('button', { class: 'btn btn-primary btn-wide', onclick: () => dialog.close() }, 'Close');
     // Esc closes it too. Focus goes back to the button that opened it.
-    const dialog = h('dialog', { class: 'confirm', 'aria-labelledby': 'phone-title', onclose: () => { dialog.remove(); phone.focus(); } },
+    const dialog = h('dialog', { class: 'confirm', 'aria-labelledby': 'phone-title', onclose: () => { stopWaiting(); dialog.remove(); phone.focus(); } },
       h('h2', { id: 'phone-title', class: 'confirm-question' }, 'Scan with your phone'),
       h('p', { class: 'sub' }, 'Point your phone camera at this code.'),
       code,
       h('p', { class: 'phone-link' }, link),
+      h('p', { class: 'sub', role: 'status' }, 'Waiting for your phone…'),
       close,
     );
+    // Anything that is not a usable cube is ignored, and the window keeps waiting.
+    stopWaiting = listen(room, (text) => {
+      const cube = readCubeLink(text);
+      if (!cube) return;
+      dialog.close();
+      go('cube', cube);
+    });
     root.append(dialog);
     dialog.showModal();
     close.focus();
@@ -386,6 +400,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
 
   return () => {
     stopped = true;
+    stopWaiting();
     letScreenDim();
     window.clearTimeout(lock);
     picture.stop();

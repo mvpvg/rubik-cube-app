@@ -22,6 +22,20 @@ vi.mock('../../src/scan/classify', async (real) => {
   return { ...actual, classify: vi.fn(actual.classify) };
 });
 
+// The relay is faked: a test hands the computer a message, or reads the room it listens to.
+const relay = vi.hoisted(() => ({ room: '', onText: (_text: string) => {}, stop: vi.fn() }));
+vi.mock('../../src/app/relay', async (real) => ({
+  ...(await real<typeof import('../../src/app/relay')>()),
+  listen: vi.fn((room: string, onText: (text: string) => void) => {
+    Object.assign(relay, { room, onText });
+    return relay.stop;
+  }),
+}));
+vi.mock('../../src/ui/qr', async (real) => {
+  const actual = await real<typeof import('../../src/ui/qr')>();
+  return { ...actual, qrCode: vi.fn(actual.qrCode) };
+});
+
 const { loadSession, saveSession, session, setCube, setLearn, setSolve } = await import('../../src/app/session');
 const { classify } = await import('../../src/scan/classify');
 const { scanAgain, scanScreen } = await import('../../src/scan/scan-screen');
@@ -29,6 +43,7 @@ const { register, start } = await import('../../src/app/router');
 const { STAGES } = await import('../../src/learn/beginner-solver');
 const { reviewScreen } = await import('../../src/review/net-editor');
 const { keepScreenOn } = await import('../../src/ui/wake-lock');
+const { qrCode } = await import('../../src/ui/qr');
 
 const RGB_OF: Record<Face, RGB> = {
   U: [255, 255, 255], R: [196, 30, 58], F: [0, 158, 96], D: [255, 213, 0], L: [255, 88, 0], B: [0, 81, 186],
@@ -1095,7 +1110,7 @@ describe('scan screen, scan with your phone', () => {
     expect(buttonNamed(scan.root, 'Scan with your phone')).toBeDefined();
   });
 
-  it('opens a panel with the QR code and the scan link, and Close gives focus back', async () => {
+  it('opens a panel with the QR code and the scan link for a new room, waits for the phone, and Close stops waiting and gives focus back', async () => {
     pointer(false);
     const scan = mount();
     close = scan.close;
@@ -1105,10 +1120,53 @@ describe('scan screen, scan with your phone', () => {
     await vi.waitFor(() => expect(scan.root.querySelector('dialog svg[aria-label]')).not.toBeNull());
     const dialog = scan.root.querySelector('dialog')!;
     expect(dialog.open).toBe(true);
-    expect(dialog.textContent).toContain(`${location.origin}${location.pathname}#/scan`);
+    expect(relay.room).toMatch(/^cube-[a-z0-9]{26,}$/);
+    const link = `${location.origin}${location.pathname}#/scan/${relay.room}`;
+    expect(dialog.querySelector('.phone-link')!.textContent).toBe(link);
+    expect(qrCode).toHaveBeenCalledWith(link, expect.any(String));
+    expect(dialog.querySelector('[role="status"]')!.textContent).toBe('Waiting for your phone…');
     expect(dialog.contains(document.activeElement)).toBe(true);
     buttonNamed(dialog, 'Close')!.click();
     expect(dialog.open).toBe(false);
+    expect(relay.stop).toHaveBeenCalledTimes(1);
     expect(document.activeElement).toBe(opener);
+  });
+
+  describe('when the phone sends', () => {
+    beforeEach(() => {
+      relay.stop.mockClear();
+      history.replaceState(null, '', '#/scan');
+    });
+    const openWindow = () => {
+      pointer(false);
+      const scan = mount();
+      close = scan.close;
+      buttonNamed(scan.root, 'Scan with your phone')!.click();
+      return { ...scan, dialog: scan.root.querySelector('dialog')! };
+    };
+
+    it('a cube from the phone closes the window, stops waiting, and opens the cube as a cube link', () => {
+      const { dialog } = openWindow();
+      relay.onText(CUBE);
+      expect(dialog.open).toBe(false);
+      expect(relay.stop).toHaveBeenCalled();
+      expect(location.hash).toBe(`#/cube/${CUBE}`);
+    });
+
+    it('a message that is not a usable cube changes nothing, and the window keeps waiting', () => {
+      const { dialog } = openWindow();
+      const movedCenter = SOLVED.slice(0, 4) + 'R' + SOLVED.slice(5, 13) + 'U' + SOLVED.slice(14);
+      relay.onText('hello');
+      relay.onText(movedCenter);
+      expect(dialog.open).toBe(true);
+      expect(relay.stop).not.toHaveBeenCalled();
+      expect(location.hash).toBe('#/scan');
+    });
+
+    it('leaving the scan with the window open stops waiting', () => {
+      const scan = openWindow();
+      scan.close();
+      expect(relay.stop).toHaveBeenCalled();
+    });
   });
 });
