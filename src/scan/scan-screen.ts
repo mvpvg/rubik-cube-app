@@ -78,7 +78,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     flow.keepOld();
     show();
   } }, 'Keep my old one');
-  const anyway = h('button', { class: 'btn btn-ghost btn-wide', hidden: true, onclick: () => { flow.useAnyway(); next(); } }, 'Use it anyway');
+  const anyway = h('button', { class: 'btn btn-ghost btn-wide', hidden: true, onclick: () => { flow.accept(flow.useAnyway()!); next(); } }, 'Use it anyway');
   const take = h('button', { class: 'btn btn-primary btn-wide scan-take', onclick: capture }, icon('camera', 26), 'Take picture');
   // Two buttons, not one with new words, so each keeps its own name.
   const ready = h('button', { class: 'btn btn-primary btn-wide scan-take', hidden: true, onclick: closeGuide }, "I'm ready");
@@ -242,7 +242,10 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     const cells = grabCells(video, canvas, 300);
     if (!cells) return say('The camera is starting. Try again in a moment.');
     const result = flow.capture(cells);
-    if (result.ok) return next();
+    if (result.ok) {
+      flow.accept(result.cells);
+      return next();
+    }
     say(result.message);
     anyway.hidden = !result.canUseAnyway;
   }

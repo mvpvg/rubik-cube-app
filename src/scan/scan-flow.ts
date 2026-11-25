@@ -71,7 +71,7 @@ export function turnFor(index: number, inOrder: boolean): { from: string; turns:
 }
 
 export type CaptureResult =
-  | { ok: true }
+  | { ok: true; cells: RGB[] }
   | { ok: false; message: string; canUseAnyway: boolean };
 
 // Six sides, asked for in a fixed order. Which sides are taken is read from the samples themselves,
@@ -125,13 +125,11 @@ export class ScanFlow {
     this.reset();
   }
 
+  // Checks the side only. A good picture changes nothing until it is passed to `accept`.
   capture(cells: RGB[]): CaptureResult {
     const step = this.step;
     const seen = nearestColor(cells[4]);
-    if (seen === step.center) {
-      this.accept(cells);
-      return { ok: true };
-    }
+    if (seen === step.center) return { ok: true, cells };
     this.failures++;
     this.rejected = cells;
     return {
@@ -151,9 +149,9 @@ export class ScanFlow {
     return labDist(toLab(cells[4]), nominalLab(seen)) < LOOK_LIMIT ? seen : null;
   }
 
-  // Keep the last rejected picture; the review screen lets the child fix colors later.
-  useAnyway(): void {
-    if (this.rejected && !this.retaking) this.accept(this.rejected);
+  // The last rejected picture, to pass to `accept`; the review screen lets the child fix colors later.
+  useAnyway(): RGB[] | null {
+    return this.retaking ? null : this.rejected;
   }
 
   samples(): (RGB | null)[] {
@@ -170,7 +168,8 @@ export class ScanFlow {
     this.rejected = null;
   }
 
-  private accept(cells: RGB[]): void {
+  // Writes the picture into the current side (in memory only) and moves to the next side asked for.
+  accept(cells: RGB[]): void {
     this.step.cells.forEach((sticker, i) => { this.stickers[sticker] = cells[i]; });
     this.last = this.index;
     this.index = this.back ?? this.firstNotTaken();
