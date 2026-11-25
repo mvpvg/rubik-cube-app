@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { go, register, start } from '../../src/app/router';
 
 const hashChanged = () => new Promise((r) => window.addEventListener('hashchange', r, { once: true }));
@@ -22,5 +22,18 @@ describe('router', () => {
     await hashChanged();
     expect(location.hash).toBe('#/home');
     expect(shown.at(-1)).toBe('home');
+  });
+
+  it('a screen that moves on with replace while it opens still lets the next screen clean up when it is left', async () => {
+    const left = vi.fn();
+    register('empty', () => { go('camera', undefined, { replace: true }); });
+    register('camera', (root) => { root.textContent = 'camera'; return left; });
+    register('other', (root) => { root.textContent = 'other'; });
+    go('empty');
+    await hashChanged();
+    expect(document.getElementById('app')!.textContent).toBe('camera');
+    go('other');
+    await hashChanged();
+    expect(left).toHaveBeenCalledOnce();
   });
 });
