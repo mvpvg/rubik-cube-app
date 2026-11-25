@@ -59,10 +59,45 @@ for (const [width, height, camera] of [[360, 560, 240], [360, 640, 280]]) {
     await page.goto('/#/scan');
     await page.getByRole('button', { name: "I'm ready" }).click();
     await page.getByRole('button', { name: 'Take picture' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
     await page.getByRole('button', { name: 'Green side, taken. Tap to take again' }).click();
     await expect(page.getByRole('button', { name: 'Keep my old one' })).toBeVisible();
     const now = await layout(page);
     expect(now.main).toBeLessThanOrEqual(now.height);
+  });
+
+  test(`at ${width}x${height} the colors show inside the camera box, with Take it again and Next both on screen`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto('/#/scan');
+    await page.getByRole('button', { name: "I'm ready" }).click();
+    await page.getByRole('button', { name: 'Take picture' }).click();
+    const panel = page.locator('.scan-check');
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText('Green', { exact: true })).toHaveCount(9);
+    const boxes = await page.evaluate(() => {
+      const box = (el: Element) => el.getBoundingClientRect();
+      const named = (name: string) => [...document.querySelectorAll('button')].find((b) => b.textContent === name)!;
+      return {
+        camera: box(document.querySelector('.scan-camera')!),
+        panel: box(document.querySelector('.scan-check')!),
+        again: box(named('Take it again')),
+        next: box(named('Next')),
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+    });
+    expect(boxes.panel.top).toBeGreaterThanOrEqual(boxes.camera.top);
+    expect(boxes.panel.bottom).toBeLessThanOrEqual(boxes.camera.bottom);
+    expect(boxes.camera.width).toBeGreaterThanOrEqual(camera);
+    for (const button of [boxes.again, boxes.next]) {
+      expect(button.top).toBeGreaterThanOrEqual(0);
+      expect(button.bottom).toBeLessThanOrEqual(boxes.height);
+      expect(button.left).toBeGreaterThanOrEqual(0);
+      expect(button.right).toBeLessThanOrEqual(boxes.width);
+    }
+    // Side by side, in the one place the main button uses.
+    expect(boxes.again.top).toBe(boxes.next.top);
+    await page.screenshot({ path: `test-results/scan-check-${width}x${height}.png` });
   });
 }
 
@@ -80,6 +115,7 @@ test('at 360x560 a picture of the wrong side shows its message above the bottom 
   await page.goto('/#/scan');
   await page.getByRole('button', { name: "I'm ready" }).click();
   await page.getByRole('button', { name: 'Take picture' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
   // The fake camera reads as green, so the red side's picture is the wrong side.
   await page.getByRole('button', { name: 'I turned it' }).click();
   await expect(page.getByRole('button', { name: 'Take picture' })).toBeEnabled();
@@ -118,11 +154,13 @@ test('a finished scan can take the green side again from the color check and com
   await page.getByRole('button', { name: 'Scan my cube' }).click();
   const take = page.getByRole('button', { name: 'Take picture' });
   const anyway = page.getByRole('button', { name: 'Use it anyway' });
+  const next = page.getByRole('button', { name: 'Next' });
   const turned = page.getByRole('button', { name: /^(I'm ready|I turned it)$/ });
   await expect.poll(() => page.evaluate(() => (document.querySelector('video.scan-video') as HTMLVideoElement | null)?.videoWidth ?? 0)).toBeGreaterThan(0);
-  // Each side: the big cube shows the turn, "I turned it", then "Take picture" once it wakes up.
+  // Each side: the big cube shows the turn, "I turned it", "Take picture" once it wakes up, then Next on the colors.
   while (!page.url().includes('#/review')) {
-    if (await anyway.isVisible()) await anyway.click();
+    if (await next.isVisible()) await next.click();
+    else if (await anyway.isVisible()) await anyway.click();
     else if (await turned.isVisible()) await turned.click();
     else if (await take.isEnabled()) await take.click();
     else await page.waitForTimeout(100);
@@ -136,6 +174,7 @@ test('a finished scan can take the green side again from the color check and com
   await expect.poll(() => page.evaluate(() => (document.querySelector('video.scan-video') as HTMLVideoElement | null)?.videoWidth ?? 0)).toBeGreaterThan(0);
   await turned.click();
   await take.click();
+  await next.click();
 
   await expect(page).toHaveURL(/#\/review\/G$/);
   await expect(page.locator('.zoom-title')).toHaveText('Green side');

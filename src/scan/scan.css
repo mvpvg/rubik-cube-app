@@ -66,23 +66,27 @@
   background: var(--well);
 }
 .scan-guide[hidden] { display: none; }
-.scan-gotit {
+/* The check: the 9 colors the app read, over the camera, in the same places as the squares. */
+.scan-check {
   position: absolute;
-  top: 6%;
-  left: 50%;
-  transform: translateX(-50%);
+  inset: 0;
+  padding: 8%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  background: var(--well);
+}
+.scan-check[hidden] { display: none; }
+.scan-check-square {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 16px;
-  border-radius: 999px;
-  background: var(--success);
-  color: var(--on-accent);
-  font-size: var(--text-l);
-  font-weight: 800;
-  white-space: nowrap;
+  justify-content: center;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+  font-size: var(--text-s);
+  font-weight: 700;
 }
-.scan-gotit[hidden] { display: none; }
 .scan-nocam {
   position: absolute;
   inset: 0;
@@ -129,6 +133,9 @@
 .scan-problem { margin: 0; min-height: var(--tap); padding: 4px 14px; line-height: 1.25; color: var(--text); }
 .scan-problem[hidden] { display: none; }
 .scan-take { font-size: var(--text-l); }
+/* The main button place. Next and Take it again share it side by side. */
+.scan-main { display: flex; gap: var(--tap-gap); }
+.scan-main .btn { flex: 1 1 0; min-width: 0; }
 .scan .btn[hidden] { display: none; }
 
 .scan { gap: 10px; }

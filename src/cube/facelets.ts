@@ -17,6 +17,8 @@ export const COLOR_HEX: Record<Color, string> = {
 export const COLOR_NAME: Record<Color, string> = {
   W: 'white', Y: 'yellow', R: 'red', O: 'orange', G: 'green', B: 'blue',
 };
+// Text color that reads on each sticker color.
+export const TEXT_ON: Record<Color, string> = { W: '#1C1D22', Y: '#1C1D22', O: '#1C1D22', R: '#FFFFFF', G: '#FFFFFF', B: '#FFFFFF' };
 export const CENTER_INDEX = [4, 13, 22, 31, 40, 49];
 
 // Sticker positions of each corner and edge slot, U/D sticker first.
