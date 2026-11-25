@@ -1,3 +1,7 @@
+interface ImportMetaEnv {
+  readonly VITE_RELAY_URL?: string;
+}
+
 declare module 'cubejs' {
   export default class Cube {
     constructor(state?: unknown);
