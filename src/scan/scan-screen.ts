@@ -1,7 +1,7 @@
 import './scan.css';
 import { go, goBack, type Cleanup } from '../app/router';
 import { hasWorkToKeep, saveSession, session, startNewWork, type RGB } from '../app/session';
-import { COLOR_HEX, COLOR_NAME } from '../cube/facelets';
+import { COLOR_HEX, COLOR_NAME, type Color } from '../cube/facelets';
 import { mergeSide } from '../review/merge-side';
 import { confirmDelete } from '../ui/confirm';
 import { h, icon } from '../ui/dom';
@@ -13,7 +13,13 @@ import { turnPicture } from './turn-picture';
 
 const PREVIEW_MS = 250;
 const BEAT_MS = 1000; // how long "Got it!" shows after a picture
-const LOCK_MS = 600; // "Take picture" waits this long after "I turned it", so a double tap takes no picture
+const LOCK_MS = 600;
+// Equal preview ticks in a row before the camera box changes what it says.
+const TICKS = { ready: 2, none: 2, other: 3 };
+const PLAIN = 'Fit the side inside the squares';
+// Pairs the camera can mix up in poor light, so the words say "may be".
+const MIX: Partial<Record<Color, Color>> = { W: 'Y', Y: 'W', R: 'O', O: 'R' };
+type Live = 'ready' | 'none' | Color; // "Take picture" waits this long after "I turned it", so a double tap takes no picture
 const REPLACE_WORDS = { question: 'Start over with this picture? Your saved cube will be deleted.', keep: 'Keep my cube', drop: 'Delete and start over' };
 
 let agreed = false;
@@ -49,7 +55,11 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   const badge = h('div', { class: 'scan-gotit', hidden: true }, icon('check', 28), 'Got it!');
   // The words beside the small cube say the same thing, so screen readers skip the big cube.
   const guide = h('div', { class: 'scan-guide', 'aria-hidden': 'true', hidden: true }, badge, big.el);
-  const camera = h('div', { class: 'scan-camera' }, video, grid, h('div', { class: 'scan-pill' }, 'Fit the side inside the squares'), guide);
+  // The pill is not a live region: its words change four times a second.
+  const pill = h('div', { class: 'scan-pill' }, PLAIN);
+  // The band shows which color goes on top. The hint says it in words, so screen readers skip it.
+  const band = h('div', { class: 'scan-band', 'aria-hidden': 'true' });
+  const camera = h('div', { class: 'scan-camera' }, video, band, grid, pill, guide);
 
   const sides = STEPS.map((_, i) => h('button', { class: 'scan-side', onclick: () => { flow.retake(i); show(); } }));
   const count = h('span', { class: 'muted' });
@@ -57,6 +67,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   const headline = h('h1', { class: 'h1' });
   const turn = h('p', { class: 'sub' });
   const hint = h('span');
+  const swatch = h('span', { class: 'scan-swatch', 'aria-hidden': 'true' });
   const problem = h('p', { class: 'note scan-problem', role: 'alert', hidden: true });
   const keepOld = h('button', { class: 'btn btn-ghost btn-wide', hidden: true, onclick: () => {
     if (oneSide) return toCheck();
@@ -80,7 +91,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
         oneSide ? null : h('div', { class: 'scan-sides' }, ...sides),
         h('div', { class: 'scan-camera-box' }, camera),
         h('div', { class: 'row' }, picture.el, h('div', { class: 'scan-text', 'aria-live': 'polite' }, headline, turn)),
-        h('div', { class: 'scan-hint' }, hint),
+        h('div', { class: 'scan-hint' }, swatch, hint),
         problem,
         h('div', { class: 'spacer' }),
         keepOld,
@@ -120,6 +131,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     headline.textContent = `Show the ${name} side`;
     turn.textContent = words;
     hint.textContent = step.hint;
+    band.style.background = swatch.style.background = COLOR_HEX[step.topColor];
     problem.hidden = true;
     anyway.hidden = true;
     keepOld.hidden = !flow.retaking;
@@ -135,6 +147,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     const { from, turns } = turnFor(flow.index, flow.inOrder);
     big.show(from, turns, flow.step.center);
     guide.hidden = false;
+    setLive('none');
     window.clearTimeout(lock);
     take.hidden = true;
     ready.hidden = turns.length > 0;
@@ -161,6 +174,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     big.paint(flow.samples());
     big.show(step.hold, [], step.center);
     guide.hidden = false;
+    setLive('none');
     badge.hidden = false;
     turn.textContent = 'Got it.';
     // A second tap on "Use it anyway" would save the picture again.
@@ -241,11 +255,37 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     () => { if (!stopped) cameraFailed(); },
   );
 
-  // Live preview: tint each cell's chip with what the camera sees.
+  // What the camera box says about the side it sees. It changes only after a short run of equal
+  // ticks, so one odd frame does not make the words flicker.
+  let seen: Live = 'none';
+  let streak = 0;
+  function setLive(state: Live): void {
+    seen = state;
+    streak = 0;
+    const asked = COLOR_NAME[flow.step.center];
+    camera.classList.toggle('ready', state === 'ready');
+    if (state === 'ready') {
+      pill.replaceChildren(icon('check', 20), `${cap(asked)} side found. Take the picture.`);
+      problem.hidden = anyway.hidden = true; // the last wrong picture no longer matters
+    } else if (state === 'none') pill.textContent = PLAIN;
+    else pill.textContent = `This ${MIX[state] === flow.step.center ? 'may be' : 'is'} the ${COLOR_NAME[state]} side. Show the ${asked} side.`;
+  }
+  let last: Live = 'none';
+  function check(cells: RGB[]): void {
+    const look = flow.look(cells);
+    const now: Live = look === 'match' ? 'ready' : look ?? 'none';
+    streak = now === last ? streak + 1 : 1;
+    last = now;
+    if (now !== seen && streak >= TICKS[now === 'ready' || now === 'none' ? now : 'other']) setLive(now);
+  }
+
+  // Live preview: tint each cell's chip with what the camera sees, and check the side while aiming.
   const timer = window.setInterval(() => {
     if (document.hidden) return;
     const cells = grabCells(video, previewCanvas, 150);
-    if (cells) cells.forEach((c, i) => { chips[i].style.background = rgbCss(c); });
+    if (!cells) return;
+    cells.forEach((c, i) => { chips[i].style.background = rgbCss(c); });
+    if (guide.hidden && !noCamera) check(cells);
   }, PREVIEW_MS);
 
   show();

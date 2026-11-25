@@ -148,3 +148,29 @@ describe('scan flow', () => {
     });
   });
 });
+
+describe('live side check', () => {
+  // A flow that asks for side `index`: every side before it is taken.
+  const flowAt = (index: number) => new ScanFlow(SOLVED.split('').map((f, i) =>
+    STEPS.slice(0, index).some((s) => s.cells.includes(i)) ? RGB_OF[f as Face] : null));
+  const middle = (rgb: RGB) => Array(9).fill([0, 0, 0]).map((c, i) => (i === 4 ? rgb : c));
+  const FACE_OF: Record<string, Face> = { W: 'U', R: 'R', G: 'F', Y: 'D', O: 'L', B: 'B' };
+
+  it('says "matches" when the middle is the asked side\'s color, for each side', () => {
+    STEPS.forEach((step, i) => {
+      const flow = flowAt(i);
+      expect(flow.index).toBe(i);
+      expect(flow.look(middle(RGB_OF[FACE_OF[step.center]]))).toBe('match');
+    });
+  });
+
+  it('names another side when the middle is clearly that side\'s color', () => {
+    expect(flowAt(0).look(middle(RGB_OF.R))).toBe('R');
+    expect(flowAt(4).look(middle(RGB_OF.D))).toBe('Y');
+  });
+
+  it('names no side when the middle is far from every sticker color, like a gray table or brown wood', () => {
+    expect(flowAt(0).look(middle([128, 128, 128]))).toBeNull();
+    expect(flowAt(0).look(middle([110, 70, 40]))).toBeNull();
+  });
+});

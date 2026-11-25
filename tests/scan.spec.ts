@@ -18,6 +18,9 @@ test('scan screen opens the camera and asks for the green side first', async ({ 
   await expect(page.getByRole('button', { name: 'Take picture' })).toHaveCount(0);
   await page.getByRole('button', { name: "I'm ready" }).click();
   await expect(page.getByRole('button', { name: 'Take picture' })).toBeEnabled();
+  // The fake camera's picture reads as green, so the camera box says the green side is found.
+  await expect(page.locator('.scan-camera.ready')).toBeVisible();
+  await expect(page.getByText('Green side found. Take the picture.')).toBeVisible();
 });
 
 test('the scan fits a small phone with no scrolling, with the big cube open and closed', async ({ page }) => {

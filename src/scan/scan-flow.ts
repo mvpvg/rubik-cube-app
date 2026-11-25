@@ -1,6 +1,6 @@
 import type { RGB } from '../app/session';
 import { applyMoves, COLOR_NAME, type Color } from '../cube/facelets';
-import { nearestColor } from './sample';
+import { labDist, nearestColor, nominalLab, toLab } from './sample';
 
 export type Step = {
   center: Color; // color of the center sticker on the side to show
@@ -34,6 +34,9 @@ const TURN_WORDS: Record<string, string> = {
   x: 'tip the bottom toward you',
 };
 const START = 'white on top and green facing you.';
+// How close the middle square must be to another side's sticker color to name that side.
+// shortcut: a starting value just under a mid-gray's distance to white (539); tune it on a real phone.
+const LOOK_LIMIT = 500;
 export const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 // The words name the same turns as the picture, in the same order.
@@ -137,6 +140,15 @@ export class ScanFlow {
       // A side taken again must never silently swap a good picture for the wrong side.
       canUseAnyway: this.failures >= 2 && !this.retaking,
     };
+  }
+
+  // What the camera's middle square shows now: the asked side, clearly another side, or nothing clear.
+  // "match" is the same test "Take picture" uses, so the two always agree. nearestColor always names
+  // some color, even for a table, so another side must also be close to its sticker color.
+  look(cells: RGB[]): 'match' | Color | null {
+    const seen = nearestColor(cells[4]);
+    if (seen === this.step.center) return 'match';
+    return labDist(toLab(cells[4]), nominalLab(seen)) < LOOK_LIMIT ? seen : null;
   }
 
   // Keep the last rejected picture; the review screen lets the child fix colors later.

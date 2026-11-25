@@ -3,11 +3,12 @@ import type { RGB } from '../../src/app/session';
 import { applyMoves, SOLVED, toColors, type Color, type Face } from '../../src/cube/facelets';
 
 // The camera is faked: each "Take picture" sees whatever side the test puts in front of it.
-const t = vi.hoisted(() => ({ cells: null as RGB[] | null, broken: false }));
+const t = vi.hoisted(() => ({ cells: null as RGB[] | null, live: null as RGB[] | null, broken: false }));
 vi.mock('../../src/scan/camera', () => ({
   startCamera: () => (t.broken ? Promise.reject(new Error('no camera')) : Promise.resolve({ getTracks: () => [] })),
   stopCamera: () => {},
-  grabCells: (_v: unknown, _c: unknown, size: number) => (size === 300 ? t.cells : null),
+  // Size 300 is "Take picture"; the live preview reads a smaller picture.
+  grabCells: (_v: unknown, _c: unknown, size: number) => (size === 300 ? t.cells : t.live),
 }));
 vi.mock('../../src/scan/classify', async (real) => {
   const actual = await real<typeof import('../../src/scan/classify')>();
@@ -607,5 +608,135 @@ describe('scan screen turn guide', () => {
     expect(buttonNamed(scan.root, "I'm ready")).toBeUndefined();
     buttonNamed(scan.root, 'Type in the colors')!.click();
     expect(location.hash).toBe('#/review/manual');
+  });
+});
+
+describe('scan screen live check', () => {
+  let close = () => {};
+  const css = ([r, g, b]: RGB) => `rgb(${r}, ${g}, ${b})`;
+  const HEX_RGB: Record<string, RGB> = { W: [255, 255, 255], B: [0, 81, 186], G: [0, 158, 96] };
+  const pill = (root: HTMLElement) => root.querySelector('.scan-pill')!.textContent;
+  const ready = (root: HTMLElement) => root.querySelector('.scan-camera')!.classList.contains('ready');
+  const ticks = (n: number) => vi.advanceTimersByTime(250 * n);
+  const see = (rgb: RGB) => { t.live = Array(9).fill(rgb); };
+  const SAVED = (n: number) => SOLVED.split('').map((f, i) => (STEPS_BEFORE(n).includes(i) ? RGB_OF[f as Face] : null));
+  const STEPS_BEFORE = (n: number) => ORDER.slice(0, n).flatMap((face) => Array.from({ length: 9 }, (_, k) => ['U', 'R', 'F', 'D', 'L', 'B'].indexOf(face) * 9 + k));
+  const aim = (root: HTMLElement) => (buttonNamed(root, 'I turned it') ?? buttonNamed(root, "I'm ready"))!.click();
+
+  beforeEach(() => {
+    localStorage.clear();
+    loadSession();
+    t.broken = false;
+    t.live = null;
+    location.hash = '';
+  });
+  afterEach(() => { close(); t.live = null; });
+
+  function at(sides: number): HTMLElement {
+    if (sides) {
+      session.samples = SAVED(sides);
+      session.route = 'scan';
+      saveSession();
+    }
+    const scan = mount();
+    close = scan.close;
+    return scan.root;
+  }
+
+  it('two ticks of the asked side show the ready border and words; one tick alone does not', () => {
+    const root = at(0);
+    aim(root);
+    see(RGB_OF.F);
+    ticks(1);
+    expect(ready(root)).toBe(false);
+    expect(pill(root)).toBe('Fit the side inside the squares');
+    ticks(1);
+    expect(ready(root)).toBe(true);
+    expect(pill(root)).toBe('Green side found. Take the picture.');
+  });
+
+  it('two unclear ticks put the plain words back', () => {
+    const root = at(0);
+    aim(root);
+    see(RGB_OF.F);
+    ticks(2);
+    see([128, 128, 128]);
+    ticks(1);
+    expect(ready(root)).toBe(true);
+    ticks(1);
+    expect(ready(root)).toBe(false);
+    expect(pill(root)).toBe('Fit the side inside the squares');
+  });
+
+  it('three ticks of another side say which side it sees; "Take picture" still checks the side as before', () => {
+    const root = at(0);
+    aim(root);
+    vi.advanceTimersByTime(LOCK);
+    see(RGB_OF.R);
+    ticks(2);
+    expect(pill(root)).toBe('Fit the side inside the squares');
+    ticks(1);
+    expect(pill(root)).toBe('This is the red side. Show the green side.');
+    t.cells = Array(9).fill(RGB_OF.R);
+    buttonNamed(root, 'Take picture')!.click();
+    expect(root.querySelector('.scan-problem')!.textContent).toBe('That looks like the red side. Show the green-center side.');
+  });
+
+  it('says "may be" for colors that are easy to mix up', () => {
+    const root = at(4);
+    expect(headline(root)).toBe('Show the white side');
+    aim(root);
+    see(RGB_OF.D);
+    ticks(3);
+    expect(pill(root)).toBe('This may be the yellow side. Show the white side.');
+  });
+
+  it('a ready side hides the message from the last wrong picture, and the picture is taken', () => {
+    const root = at(0);
+    aim(root);
+    vi.advanceTimersByTime(LOCK);
+    t.cells = Array(9).fill(RGB_OF.R);
+    buttonNamed(root, 'Take picture')!.click();
+    expect(root.querySelector<HTMLElement>('.scan-problem')!.hidden).toBe(false);
+    see(RGB_OF.F);
+    ticks(2);
+    expect(root.querySelector<HTMLElement>('.scan-problem')!.hidden).toBe(true);
+    t.cells = Array(9).fill(RGB_OF.F);
+    buttonNamed(root, 'Take picture')!.click();
+    expect(stored().samples.filter(Boolean)).toHaveLength(9);
+  });
+
+  it('does nothing while the big cube shows', () => {
+    const root = at(0);
+    see(RGB_OF.F);
+    ticks(4);
+    expect(ready(root)).toBe(false);
+    expect(pill(root)).toBe('Fit the side inside the squares');
+  });
+
+  it('the top band and the square by the hint show the top color for each side', () => {
+    const band = (root: HTMLElement) => root.querySelector<HTMLElement>('.scan-band')!;
+    const swatch = (root: HTMLElement) => root.querySelector<HTMLElement>('.scan-swatch')!;
+    for (const [sides, top] of [[0, 'W'], [3, 'W'], [4, 'B'], [5, 'G']] as const) {
+      const root = at(sides);
+      expect(band(root).style.background).toBe(css(HEX_RGB[top]));
+      expect(swatch(root).style.background).toBe(css(HEX_RGB[top]));
+      expect(band(root).getAttribute('aria-hidden')).toBe('true');
+      close();
+    }
+  });
+
+  it('the live words are not read out as they change', () => {
+    const root = at(0);
+    expect(root.querySelector('.scan-pill')!.closest('[aria-live]')).toBeNull();
+  });
+
+  it('after the camera fails, no live state shows and the ticks do not break', async () => {
+    t.broken = true;
+    const root = at(0);
+    await settle();
+    see(RGB_OF.F);
+    ticks(4);
+    expect(root.querySelector('.scan-camera.ready')).toBeNull();
   });
 });

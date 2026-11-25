@@ -48,8 +48,12 @@
   left: 50%;
   bottom: 12px;
   transform: translateX(-50%);
-  width: max-content;
-  max-width: 90%;
+  /* A fixed width, so new words do not make it jump. */
+  width: 90%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   text-align: center;
   background: rgba(28, 29, 34, 0.85);
   color: var(--text);
@@ -58,6 +62,11 @@
   padding: 8px 14px;
   border-radius: 999px;
 }
+/* The top band sits in the 8% margin above the squares, so it never moves the grid. */
+.scan-band { position: absolute; top: 2%; left: 8%; right: 8%; height: 4%; border-radius: 999px; border: 2px solid rgba(0, 0, 0, 0.45); }
+/* "Side found": a thick border with a check mark and words, not color alone. Drawn over the video. */
+.scan-camera.ready::after { content: ''; position: absolute; inset: 0; border: 6px solid var(--success); border-radius: inherit; pointer-events: none; }
+.scan-camera.ready .scan-pill { color: var(--success); }
 .scan-guide {
   position: absolute;
   inset: 0;
@@ -126,6 +135,7 @@
 .scan .row { flex-wrap: wrap; }
 .scan-text { flex: 1 1 160px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .scan-hint { display: flex; align-items: center; gap: 10px; font-size: var(--text-m); color: var(--soft); }
+.scan-swatch { flex: none; width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--line); }
 .scan-problem { margin: 0; color: var(--text); }
 .scan-problem[hidden] { display: none; }
 .scan-take { min-height: var(--tap-take); font-size: var(--text-l); }
