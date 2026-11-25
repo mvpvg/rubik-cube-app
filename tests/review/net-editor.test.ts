@@ -389,6 +389,16 @@ describe('review screen', () => {
   });
 });
 
+describe('color check Exit', () => {
+  it('has Exit at the end of the top bar', () => {
+    localStorage.clear();
+    loadSession();
+    session.colors = toColors(SOLVED);
+    const bar = [...mount().querySelectorAll('.topbar button')];
+    expect(bar.at(-1)!.textContent).toBe('Exit');
+  });
+});
+
 describe('send to computer', () => {
   const state = applyMoves(SOLVED, "R U F' D2");
   beforeEach(() => {

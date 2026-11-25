@@ -73,3 +73,17 @@ test('a cube link opened in a fresh page lands on the color check, and a refresh
   await expect(page.getByText('This cube works')).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
+
+test('Exit asks first: Esc stays on the screen, and "Go Home" goes Home with the saved work kept', async ({ page }) => {
+  await seedWork(page);
+  await page.goto('/#/review');
+  await page.getByRole('button', { name: 'Exit' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Your cube is saved.');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Check the colors' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Exit' }).click();
+  await page.getByRole('button', { name: 'Go Home' }).click();
+  await expect(page.getByRole('button', { name: 'Keep going' })).toBeVisible();
+});

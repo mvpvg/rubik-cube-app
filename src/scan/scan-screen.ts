@@ -1,5 +1,6 @@
 import './scan.css';
 import { readCubeLink } from '../app/cube-link';
+import { exitButton } from '../app/exit';
 import { isRoom, keepRoom, listen, newRoom } from '../app/relay';
 import { go, goBack, type Cleanup } from '../app/router';
 import { hasWorkToKeep, saveSession, session, startNewWork, type RGB } from '../app/session';
@@ -101,6 +102,8 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
         h('div', { class: 'topbar' },
           h('button', { class: 'top-btn', 'aria-label': 'Back', onclick: () => (oneSide ? toCheck() : goBack()) }, icon('back'), 'Back'),
           oneSide ? null : count,
+          // The picture on the check is not saved until Next.
+          exitButton(root, () => (pending ? 'The picture you just took will be lost.' : null)),
         ),
         // One side from the color check has one job, so nothing here leads away from it.
         oneSide ? null : h('div', { class: 'scan-sides' }, ...sides),

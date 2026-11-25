@@ -323,6 +323,45 @@ describe('scan screen Back', () => {
     expect(document.querySelector('dialog')).toBeNull();
     expect(localStorage.getItem('cube.session')).toBe(before);
   });
+
+  it('Exit, then Go Home, leaves the scan and lets the screen dim', async () => {
+    location.hash = '#/scan';
+    await hashChange();
+    letScreenDim.mockClear();
+    buttonNamed(app(), 'Exit')!.click();
+    buttonNamed(app(), 'Go Home')!.click();
+    await hashChange();
+    expect(location.hash).toBe('#/home');
+    expect(letScreenDim).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('scan screen Exit', () => {
+  beforeEach(() => { localStorage.clear(); loadSession(); });
+
+  it('the full scan and one side each have Exit at the end of the top bar', () => {
+    let scan = mount();
+    expect([...scan.root.querySelectorAll('.topbar button')].at(-1)!.textContent).toBe('Exit');
+    scan.close();
+    session.colors = toColors(CUBE);
+    scan = mount('G');
+    expect([...scan.root.querySelectorAll('.topbar button')].at(-1)!.textContent).toBe('Exit');
+    scan.close();
+  });
+
+  it('with a picture on the check, says that picture will be lost, and Go Home does not save it', async () => {
+    history.replaceState(null, '', '#/scan');
+    const scan = mount();
+    snap(scan.root, 'F');
+    const before = localStorage.getItem('cube.session');
+    buttonNamed(scan.root, 'Exit')!.click();
+    expect(scan.root.querySelector('dialog .confirm-question')!.textContent).toBe('Go back Home? The picture you just took will be lost.');
+    buttonNamed(scan.root, 'Go Home')!.click();
+    await settle();
+    expect(location.hash).toBe('#/home');
+    scan.close();
+    expect(localStorage.getItem('cube.session')).toBe(before);
+  });
 });
 
 describe('scan screen, taking a side again', () => {

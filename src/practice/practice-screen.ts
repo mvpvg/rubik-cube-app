@@ -1,4 +1,5 @@
 import './practice.css';
+import { exitButton } from '../app/exit';
 import { go, type Cleanup } from '../app/router';
 import { applyMoves, SOLVED } from '../cube/facelets';
 import { createHinter, type HintStep } from '../learn/hint';
@@ -55,6 +56,8 @@ export function practiceScreen(root: HTMLElement, param?: string): Cleanup {
         h('div', { class: 'topbar' },
           h('button', { class: 'top-btn', 'aria-label': stage ? 'Back to Learn' : 'Back to home', onclick: () => go(stage ? 'learn' : 'home') }, icon('back'), 'Back'),
           h('button', { class: 'link', style: 'padding:8px', onclick: () => go('moves') }, 'Moves'),
+          // Practice moves are never saved.
+          exitButton(root, () => (cube.moveCount ? 'Your practice cube will be lost.' : null)),
         ),
         // The title has its own row: with "Back" in words, a stage name no longer fits between the buttons.
         h('h1', { style: 'font-size:var(--text-l)' }, stage ? `Practice: ${stage.title}` : 'Practice'),
