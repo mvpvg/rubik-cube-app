@@ -529,6 +529,20 @@ describe('send to computer', () => {
       expect(root.querySelector<HTMLElement>('.send-link')!.hidden).toBe(true);
     });
 
+    it('a color picked while it sends drops the old result words', async () => {
+      let done = () => {};
+      vi.mocked(relaySend).mockImplementation(() => new Promise<void>((r) => { done = r; }));
+      const root = mount();
+      button(root, 'Send to computer').click();
+      openSide(root, 'G');
+      zoomSquares(root)[0].click();
+      button(root, COLOR_NAME[zoomSquares(root)[0].textContent === 'B' ? 'W' : 'B']).click();
+      done();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(status(root)).toBe('');
+    });
+
     it('when sessionStorage throws, uses the link', async () => {
       const share = vi.fn(() => Promise.resolve());
       sharing(share);

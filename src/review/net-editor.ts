@@ -248,15 +248,16 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
       keepRoom(null);
       sending = true;
       copied.textContent = 'Sending…';
-      try {
-        await sendToRoom(room, cube);
-        copied.textContent = 'Sent! Look at your computer.';
-      } catch {
+      const sent = await sendToRoom(room, cube).then(() => true, () => false);
+      sending = false;
+      // A color picked while it sent cleared these words: the result is about the old colors.
+      if (copied.textContent !== 'Sending…') return;
+      if (sent) copied.textContent = 'Sent! Look at your computer.';
+      else {
         // Share and copy need a fresh tap on a phone, so they wait for the next one.
         showLink();
         copied.textContent = 'Could not send. Tap Send to computer again to share the link.';
       }
-      sending = false;
       return;
     }
     showLink();
