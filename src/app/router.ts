@@ -4,6 +4,7 @@ export type Screen = (root: HTMLElement, param?: string) => Cleanup | void;
 const routes = new Map<string, Screen>();
 let cleanup: Cleanup | void;
 let shown = false; // a screen of this app was already shown in this page
+let renders = 0;
 
 export function register(name: string, screen: Screen): void {
   routes.set(name, screen);
@@ -45,7 +46,12 @@ function render(): void {
   root.replaceChildren();
   root.scrollTop = 0;
   window.scrollTo(0, 0);
-  if (screen) cleanup = screen(root, param);
+  if (!screen) return;
+  const id = ++renders;
+  const done = screen(root, param);
+  // A screen that moved on with replace while opening already rendered the next one: keep that one's cleanup.
+  if (id === renders) cleanup = done;
+  else if (done) done();
 }
 
 export function start(): void {
