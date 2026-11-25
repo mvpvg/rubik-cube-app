@@ -25,6 +25,13 @@ function faceImage(cube: string, hold: string): Uint8ClampedArray {
 
 const solidFace = (face: Face): RGB[] => Array(9).fill(RGB_OF[face]);
 
+// Takes a picture and, if the side check passes, accepts it, as the child does by tapping Next.
+function take(flow: ScanFlow, cells: RGB[]) {
+  const result = flow.capture(cells);
+  if (result.ok) flow.accept(result.cells);
+  return result;
+}
+
 describe('scan flow', () => {
   it('asks for green, red, blue, orange, white, yellow in order, then is done with 54 samples', () => {
     const flow = new ScanFlow();
@@ -32,7 +39,7 @@ describe('scan flow', () => {
     for (const face of ['F', 'R', 'B', 'L', 'U', 'D'] as Face[]) {
       expect(flow.done).toBe(false);
       seen.push(flow.step.center);
-      expect(flow.capture(solidFace(face)).ok).toBe(true);
+      expect(take(flow, solidFace(face)).ok).toBe(true);
     }
     expect(seen).toEqual(['G', 'R', 'B', 'O', 'W', 'Y']);
     expect(flow.done).toBe(true);
@@ -49,7 +56,7 @@ describe('scan flow', () => {
 
   it('stays on the step and names the expected face when the center is wrong', () => {
     const flow = new ScanFlow();
-    flow.capture(solidFace('F'));
+    take(flow, solidFace('F'));
     const result = flow.capture(solidFace('L')); // orange shown when red is expected
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.message).toContain('Show the red-center side');
@@ -62,7 +69,7 @@ describe('scan flow', () => {
     expect(!first.ok && first.canUseAnyway).toBe(false);
     const second = flow.capture(solidFace('B'));
     expect(!second.ok && second.canUseAnyway).toBe(true);
-    flow.useAnyway();
+    flow.accept(flow.useAnyway()!);
     expect(flow.step.center).toBe('R');
   });
 
@@ -70,7 +77,7 @@ describe('scan flow', () => {
     const cube = applyMoves(SOLVED, "R U2 F' L D B2 R' U F2 D' L2 B U' R2");
     const flow = new ScanFlow();
     for (const hold of HOLDS) {
-      expect(flow.capture(sampleGrid(faceImage(cube, hold), 300, 300)).ok).toBe(true);
+      expect(take(flow, sampleGrid(faceImage(cube, hold), 300, 300)).ok).toBe(true);
     }
     const expected = cube.split('').map((f) => RGB_OF[f as Face]);
     expect(flow.samples()).toEqual(expected);
@@ -102,7 +109,7 @@ describe('scan flow', () => {
     const order: Face[] = ['F', 'R', 'B', 'L', 'U', 'D'];
     const onSideFive = () => {
       const flow = new ScanFlow();
-      order.slice(0, 4).forEach((f) => flow.capture(solidFace(f)));
+      order.slice(0, 4).forEach((f) => take(flow, solidFace(f)));
       return flow;
     };
     const redAgain: RGB[] = Array(9).fill([190, 35, 60]);
@@ -112,7 +119,7 @@ describe('scan flow', () => {
       const before = flow.samples();
       flow.retake(1);
       expect(flow.step.center).toBe('R');
-      expect(flow.capture(redAgain).ok).toBe(true);
+      expect(take(flow, redAgain).ok).toBe(true);
       expect(flow.index).toBe(4);
       const after = flow.samples();
       expect(after.slice(9, 18)).toEqual(redAgain);
@@ -146,6 +153,70 @@ describe('scan flow', () => {
       expect(flow.index).toBe(3);
       expect(flow.inOrder).toBe(false);
     });
+  });
+});
+
+describe('checking a picture before it counts', () => {
+  const afterGreen = () => {
+    const flow = new ScanFlow();
+    take(flow, solidFace('F'));
+    return flow;
+  };
+  const state = (flow: ScanFlow) => ({
+    index: flow.index, inOrder: flow.inOrder, retaking: flow.retaking,
+    taken: STEPS.map((_, i) => flow.taken(i)), samples: flow.samples(),
+  });
+
+  it('retaking blue mid-scan, a good picture dropped, then "Keep my old one": the old blue picture stays and the scan goes back', () => {
+    const flow = new ScanFlow();
+    (['F', 'R', 'B', 'L'] as Face[]).forEach((f) => take(flow, solidFace(f)));
+    const before = flow.samples();
+    flow.retake(2);
+    expect(flow.capture(Array(9).fill([5, 85, 180])).ok).toBe(true);
+    flow.keepOld(); // the new picture is dropped, never accepted
+    expect(flow.index).toBe(4);
+    expect(flow.retaking).toBe(false);
+    expect(flow.samples()).toEqual(before);
+  });
+
+  it('a good picture that is dropped changes nothing', () => {
+    const flow = afterGreen();
+    const before = state(flow);
+    const result = flow.capture(solidFace('R'));
+    expect(result.ok && result.cells).toEqual(solidFace('R'));
+    expect(state(flow)).toEqual(before);
+  });
+
+  it('a good picture that is accepted writes its stickers, moves on, and ends the retake', () => {
+    const flow = afterGreen();
+    take(flow, solidFace('R'));
+    flow.retake(0);
+    const green: RGB[] = Array(9).fill([10, 150, 100]);
+    take(flow, green);
+    expect(flow.samples().slice(18, 27)).toEqual(green);
+    expect(flow.index).toBe(2); // back to the side it came from
+    expect(flow.retaking).toBe(false);
+  });
+
+  it('"Use it anyway" hands back the rejected picture unsaved, and accepting it stores it', () => {
+    const flow = new ScanFlow();
+    flow.capture(solidFace('B'));
+    flow.capture(solidFace('B'));
+    const before = state(flow);
+    const cells = flow.useAnyway();
+    expect(cells).toEqual(solidFace('B'));
+    expect(state(flow)).toEqual(before);
+    flow.accept(cells!);
+    expect(flow.samples().slice(18, 27)).toEqual(solidFace('B'));
+    expect(flow.step.center).toBe('R');
+  });
+
+  it('"Use it anyway" hands back nothing while a side is taken again', () => {
+    const flow = afterGreen();
+    flow.retake(0);
+    flow.capture(solidFace('B'));
+    flow.capture(solidFace('B'));
+    expect(flow.useAnyway()).toBeNull();
   });
 });
 
