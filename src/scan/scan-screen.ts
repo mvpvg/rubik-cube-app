@@ -187,6 +187,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     big.stop();
     setLive('none');
     mainButton(take, true);
+    window.clearTimeout(lock);
     if (!noCamera) lock = window.setTimeout(() => mainButton(take), LOCK_MS);
   }
 
@@ -224,6 +225,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     if (nextButton.getAttribute('aria-disabled') === 'true' || !pending) return;
     flow.accept(pending);
     pending = null;
+    if (noCamera) showNoCamera();
     next();
   }
 
@@ -309,8 +311,18 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     say(null);
     window.clearTimeout(lock);
     big.stop();
-    // A picture on the check can still be saved with Next.
-    mainButton(pending ? nextButton : take, !pending);
+    // A picture on the check stays in view, so the child still sees what Next saves. Taking it
+    // again needs the camera, so only Next is left; the camera box changes once Next is tapped.
+    if (pending) {
+      mainButton(nextButton);
+      retry.hidden = true;
+      return;
+    }
+    mainButton(take, true);
+    showNoCamera();
+  }
+
+  function showNoCamera(): void {
     camera.replaceChildren(oneSide
       ? h('div', { class: 'scan-nocam' },
         h('p', { class: 'sub' }, 'The camera is not working. Go back and fix the squares by hand.'),
