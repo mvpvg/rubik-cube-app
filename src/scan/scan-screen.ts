@@ -5,6 +5,7 @@ import { COLOR_HEX, COLOR_NAME, TEXT_ON, type Color } from '../cube/facelets';
 import { mergeSide } from '../review/merge-side';
 import { confirmDelete } from '../ui/confirm';
 import { h, icon } from '../ui/dom';
+import { qrCode } from '../ui/qr';
 import { keepScreenOn } from '../ui/wake-lock';
 import { grabCells, startCamera, stopCamera } from './camera';
 import { classify, sideColors } from './classify';
@@ -86,6 +87,8 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   const turned = h('button', { class: 'btn btn-primary btn-wide scan-take', hidden: true, onclick: closeGuide }, 'I turned it');
   const retry = h('button', { class: 'btn btn-ghost', hidden: true, onclick: show }, 'Take it again');
   const nextButton = h('button', { class: 'btn btn-primary', hidden: true, onclick: confirmCheck }, 'Next');
+  // A phone has its own camera, so this shows only with a mouse, or when the camera fails.
+  const phone = h('button', { class: 'link', hidden: window.matchMedia?.('(any-pointer: coarse)').matches, onclick: openPhone }, 'Scan with your phone');
 
   root.append(
     h('section', { class: 'screen scan' },
@@ -108,6 +111,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
         anyway,
       ),
       oneSide ? null : h('button', { class: 'link', onclick: () => go('review', 'manual') }, 'Type in the colors instead'),
+      oneSide ? null : phone,
     ),
   );
 
@@ -278,8 +282,29 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     anyway.hidden = !result.canUseAnyway;
   }
 
+  // The QR code opens this app's scan on a phone. The site lives under a folder, so the path is kept.
+  function openPhone(): void {
+    const link = `${location.origin}${location.pathname}#/scan`;
+    const code = h('div', { class: 'phone-qr' });
+    const close = h('button', { class: 'btn btn-primary btn-wide', onclick: () => dialog.close() }, 'Close');
+    // Esc closes it too. Focus goes back to the button that opened it.
+    const dialog = h('dialog', { class: 'confirm', 'aria-labelledby': 'phone-title', onclose: () => { dialog.remove(); phone.focus(); } },
+      h('h2', { id: 'phone-title', class: 'confirm-question' }, 'Scan with your phone'),
+      h('p', { class: 'sub' }, 'Point your phone camera at this code.'),
+      code,
+      h('p', { class: 'phone-link' }, link),
+      close,
+    );
+    root.append(dialog);
+    dialog.showModal();
+    close.focus();
+    // If the code cannot load, the link still shows as text.
+    qrCode(link, 'QR code that opens the scan on a phone').then((svg) => code.append(svg), () => {});
+  }
+
   function cameraFailed(): void {
     noCamera = true;
+    phone.hidden = false;
     setLive('none');
     say(null);
     window.clearTimeout(lock);

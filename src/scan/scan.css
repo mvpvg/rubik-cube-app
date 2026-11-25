@@ -140,3 +140,7 @@
 
 .scan { gap: 10px; }
 .scan .h1 { font-size: var(--text-l); }
+/* "Scan with your phone": the QR code keeps its white quiet zone on the dark panel. */
+.phone-qr { display: flex; justify-content: center; }
+.phone-qr svg { width: 200px; height: 200px; border-radius: 8px; }
+.phone-link { margin: 0; font-size: var(--text-s); text-align: center; overflow-wrap: anywhere; user-select: all; }
