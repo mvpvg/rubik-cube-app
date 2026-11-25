@@ -5,6 +5,7 @@ import { COLOR_HEX, COLOR_NAME, type Color } from '../cube/facelets';
 import { mergeSide } from '../review/merge-side';
 import { confirmDelete } from '../ui/confirm';
 import { h, icon } from '../ui/dom';
+import { keepScreenOn } from '../ui/wake-lock';
 import { grabCells, startCamera, stopCamera } from './camera';
 import { classify } from './classify';
 import { cap, ScanFlow, STEPS, turnFor } from './scan-flow';
@@ -16,7 +17,7 @@ const BEAT_MS = 1000; // how long "Got it!" shows after a picture
 const LOCK_MS = 600; // "Take picture" waits this long after "I turned it", so a double tap takes no picture
 // Equal preview ticks in a row before the camera box changes what it says.
 const TICKS = { ready: 2, none: 2, other: 3 };
-const PLAIN = 'Fit the side inside the squares';
+const PLAIN = 'Fit the side in the squares';
 // Pairs the camera can mix up in poor light, so the words say "may be".
 const MIX: Partial<Record<Color, Color>> = { W: 'Y', Y: 'W', R: 'O', O: 'R' };
 type Live = 'ready' | 'none' | Color;
@@ -55,19 +56,22 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   const badge = h('div', { class: 'scan-gotit', hidden: true }, icon('check', 28), 'Got it!');
   // The words beside the small cube say the same thing, so screen readers skip the big cube.
   const guide = h('div', { class: 'scan-guide', 'aria-hidden': 'true', hidden: true }, badge, big.el);
-  // The pill is not a live region: its words change four times a second.
-  const pill = h('div', { class: 'scan-pill' }, PLAIN);
   // The band shows which color goes on top. The hint says it in words, so screen readers skip it.
   const band = h('div', { class: 'scan-band', 'aria-hidden': 'true' });
-  const camera = h('div', { class: 'scan-camera' }, video, band, grid, pill, guide);
+  // "Side found" in the camera: a thick border and this check mark, not color alone.
+  const found = h('span', { class: 'scan-found', 'aria-hidden': 'true' }, icon('check', 20));
+  const camera = h('div', { class: 'scan-camera' }, video, band, grid, found, guide);
 
   const sides = STEPS.map((_, i) => h('button', { class: 'scan-side', onclick: () => { flow.retake(i); show(); } }));
   const count = h('span', { class: 'muted' });
   const picture = turnPicture({ again: () => { if (badge.hidden) openGuide(); } });
-  const headline = h('h1', { class: 'h1' });
+  const headline = h('h1', { class: 'h1', 'aria-live': 'polite' });
   const turn = h('p', { class: 'sub' });
   const hint = h('span');
   const swatch = h('span', { class: 'scan-swatch', 'aria-hidden': 'true' });
+  // The live words sit under the camera, so they never cover a square. They are not a live region:
+  // they change four times a second. A problem message takes their place while it shows.
+  const line = h('p', { class: 'scan-live' }, PLAIN);
   const problem = h('p', { class: 'note scan-problem', role: 'alert', hidden: true });
   const keepOld = h('button', { class: 'btn btn-ghost btn-wide', hidden: true, onclick: () => {
     if (oneSide) return toCheck();
@@ -89,16 +93,18 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
         ),
         // One side from the color check has one job, so nothing here leads away from it.
         oneSide ? null : h('div', { class: 'scan-sides' }, ...sides),
+        headline,
         h('div', { class: 'scan-camera-box' }, camera),
-        h('div', { class: 'row' }, picture.el, h('div', { class: 'scan-text', 'aria-live': 'polite' }, headline, turn)),
-        h('div', { class: 'scan-hint' }, swatch, hint),
+        line,
         problem,
-        h('div', { class: 'spacer' }),
-        keepOld,
-        anyway,
         take,
         ready,
         turned,
+        // On a short phone everything from here may sit below the fold, so the camera keeps its size.
+        h('div', { class: 'row' }, picture.el, h('div', { class: 'scan-text', 'aria-live': 'polite' }, turn)),
+        h('div', { class: 'scan-hint' }, swatch, hint),
+        keepOld,
+        anyway,
       ),
       oneSide ? null : h('button', { class: 'link', onclick: () => go('review', 'manual') }, 'Type in the colors instead'),
     ),
@@ -132,7 +138,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     turn.textContent = words;
     hint.textContent = step.hint;
     band.style.background = swatch.style.background = COLOR_HEX[step.topColor];
-    problem.hidden = true;
+    say(null);
     anyway.hidden = true;
     keepOld.hidden = !flow.retaking;
     if (flow.index !== shown) {
@@ -141,9 +147,21 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     }
   }
 
-  // The three main buttons share one place, so one shows at a time.
-  function mainButton(which: HTMLButtonElement): void {
-    for (const button of [take, ready, turned]) button.hidden = button !== which;
+  function say(message: string | null): void {
+    problem.textContent = message;
+    problem.hidden = !message;
+    line.hidden = !!message;
+  }
+
+  // The three main buttons share one place, so one shows at a time, and focus moves with it.
+  // A button that waits is turned off with aria-disabled, not disabled, so it keeps focus: a disabled
+  // button drops focus to the page.
+  function mainButton(which: HTMLButtonElement, off = false): void {
+    const main = [take, ready, turned];
+    const focused = main.includes(document.activeElement as HTMLButtonElement);
+    for (const button of main) button.hidden = button !== which;
+    which.setAttribute('aria-disabled', String(off));
+    if (focused) which.focus();
   }
 
   function openGuide(): void {
@@ -157,15 +175,11 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   }
 
   function closeGuide(): void {
-    const focused = document.activeElement === ready || document.activeElement === turned;
     guide.hidden = true;
     big.stop();
-    mainButton(take);
-    take.disabled = true;
-    lock = window.setTimeout(() => {
-      take.disabled = false;
-      if (focused) take.focus();
-    }, LOCK_MS);
+    setLive('none');
+    mainButton(take, true);
+    lock = window.setTimeout(() => mainButton(take), LOCK_MS);
   }
 
   // The big cube shows the side just taken, in its colors, for a second; then the scan moves on.
@@ -182,9 +196,9 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     badge.hidden = false;
     turn.textContent = 'Got it.';
     // A second tap on "Use it anyway" would save the picture again.
-    problem.hidden = anyway.hidden = keepOld.hidden = true;
-    mainButton(take);
-    take.disabled = true;
+    say(null);
+    anyway.hidden = keepOld.hidden = true;
+    mainButton(take, true);
     beat = window.setTimeout(then, BEAT_MS);
   }
 
@@ -223,21 +237,22 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   }
 
   function capture(): void {
+    if (take.getAttribute('aria-disabled') === 'true') return;
     const cells = grabCells(video, canvas, 300);
-    if (!cells) return;
+    if (!cells) return say('The camera is starting. Try again in a moment.');
     const result = flow.capture(cells);
     if (result.ok) return next();
-    problem.textContent = result.message;
-    problem.hidden = false;
+    say(result.message);
     anyway.hidden = !result.canUseAnyway;
   }
 
   function cameraFailed(): void {
     noCamera = true;
+    setLive('none');
+    say(null);
     window.clearTimeout(lock);
     big.stop();
-    mainButton(take);
-    take.disabled = true;
+    mainButton(take, true);
     camera.replaceChildren(oneSide
       ? h('div', { class: 'scan-nocam' },
         h('p', { class: 'sub' }, 'The camera is not working. Go back and fix the squares by hand.'),
@@ -253,7 +268,12 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   let stream: MediaStream | null = null;
   let stopped = false;
   startCamera(video).then(
-    (s) => { if (stopped) stopCamera(s); else stream = s; },
+    (s) => {
+      if (stopped) return stopCamera(s);
+      stream = s;
+      // Permission taken back, or another app took the camera. The saved sides stay saved.
+      s.getVideoTracks()[0]?.addEventListener('ended', cameraFailed);
+    },
     () => { if (!stopped) cameraFailed(); },
   );
 
@@ -265,13 +285,13 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   function setLive(state: Live): void {
     live = state;
     streak = 0;
-    const asked = COLOR_NAME[flow.step.center];
     camera.classList.toggle('ready', state === 'ready');
     if (state === 'ready') {
-      pill.replaceChildren(icon('check', 20), `${cap(asked)} side found. Take the picture.`);
-      problem.hidden = true;
-    } else if (state === 'none') pill.textContent = PLAIN;
-    else pill.textContent = `This ${MIX[state] === flow.step.center ? 'may be' : 'is'} the ${COLOR_NAME[state]} side. Show the ${asked} side.`;
+      line.textContent = `${cap(COLOR_NAME[flow.step.center])} side found`;
+      say(null);
+    // Under the big cube, or with no camera, there are no squares to fit.
+    } else if (state === 'none') line.textContent = guide.hidden && !noCamera ? PLAIN : '';
+    else line.textContent = `That ${MIX[state] === flow.step.center ? 'may be' : 'looks like'} ${COLOR_NAME[state]}`;
   }
   function check(cells: RGB[]): void {
     const look = flow.look(cells);
@@ -291,9 +311,11 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   }, PREVIEW_MS);
 
   show();
+  const letScreenDim = keepScreenOn();
 
   return () => {
     stopped = true;
+    letScreenDim();
     window.clearTimeout(beat);
     window.clearTimeout(lock);
     picture.stop();

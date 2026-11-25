@@ -3,13 +3,20 @@ import type { RGB } from '../../src/app/session';
 import { applyMoves, SOLVED, toColors, type Color, type Face } from '../../src/cube/facelets';
 
 // The camera is faked: each "Take picture" sees whatever side the test puts in front of it.
-const t = vi.hoisted(() => ({ cells: null as RGB[] | null, live: null as RGB[] | null, broken: false }));
+// Its video track is an event target, so a test can stop the camera mid-scan.
+const t = vi.hoisted(() => ({ cells: null as RGB[] | null, live: null as RGB[] | null, broken: false, track: new EventTarget() }));
 vi.mock('../../src/scan/camera', () => ({
-  startCamera: () => (t.broken ? Promise.reject(new Error('no camera')) : Promise.resolve({ getTracks: () => [] })),
+  startCamera: () => {
+    if (t.broken) return Promise.reject(new Error('no camera'));
+    t.track = new EventTarget();
+    return Promise.resolve({ getTracks: () => [t.track], getVideoTracks: () => [t.track] });
+  },
   stopCamera: () => {},
   // Size 300 is "Take picture"; the live preview reads a smaller picture.
   grabCells: (_v: unknown, _c: unknown, size: number) => (size === 300 ? t.cells : t.live),
 }));
+const letScreenDim = vi.hoisted(() => vi.fn());
+vi.mock('../../src/ui/wake-lock', () => ({ keepScreenOn: vi.fn(() => letScreenDim) }));
 vi.mock('../../src/scan/classify', async (real) => {
   const actual = await real<typeof import('../../src/scan/classify')>();
   return { ...actual, classify: vi.fn(actual.classify) };
@@ -21,6 +28,7 @@ const { scanAgain, scanScreen } = await import('../../src/scan/scan-screen');
 const { register, start } = await import('../../src/app/router');
 const { STAGES } = await import('../../src/learn/beginner-solver');
 const { reviewScreen } = await import('../../src/review/net-editor');
+const { keepScreenOn } = await import('../../src/ui/wake-lock');
 
 const RGB_OF: Record<Face, RGB> = {
   U: [255, 255, 255], R: [196, 30, 58], F: [0, 158, 96], D: [255, 213, 0], L: [255, 88, 0], B: [0, 81, 186],
@@ -39,6 +47,8 @@ function mount(param?: string): { root: HTMLElement; close: () => void } {
 const buttonNamed = (root: HTMLElement, name: string) =>
   [...root.querySelectorAll('button')].find((b) => !b.hidden && (b.textContent === name || b.getAttribute('aria-label') === name)) as HTMLButtonElement | undefined;
 const headline = (root: HTMLElement) => root.querySelector('h1')!.textContent;
+// "Take picture" is turned off with aria-disabled, so it keeps keyboard focus while it waits.
+const off = (button: HTMLButtonElement) => button.getAttribute('aria-disabled') === 'true';
 
 // jsdom has no modal dialog; the real one (Esc, the back gesture) is proven in the browser tests.
 beforeAll(() => {
@@ -67,7 +77,7 @@ function take(root: HTMLElement, face: Face | RGB): void {
   vi.advanceTimersByTime(LOCK);
   t.cells = Array(9).fill(typeof face === 'string' ? RGB_OF[face] : face);
   const button = buttonNamed(root, 'Take picture')!;
-  expect(button.disabled).toBe(false);
+  expect(off(button)).toBe(false);
   button.click();
 }
 
@@ -442,11 +452,11 @@ describe('scan screen turn guide', () => {
     buttonNamed(scan.root, "I'm ready")!.click();
     t.cells = Array(9).fill(RGB_OF.F);
     const button = buttonNamed(scan.root, 'Take picture')!;
-    expect(button.disabled).toBe(true);
+    expect(off(button)).toBe(true);
     button.click();
     expect(stored()?.samples ?? null).toBeNull();
     vi.advanceTimersByTime(LOCK);
-    expect(button.disabled).toBe(false);
+    expect(off(button)).toBe(false);
     button.click();
     expect(stored().samples.filter(Boolean)).toHaveLength(9);
   });
@@ -460,7 +470,7 @@ describe('scan screen turn guide', () => {
     expect(badge(scan.root).hidden).toBe(false);
     expect(bigFace(scan.root, 'G').map((s) => s.style.background)).toEqual(Array(9).fill(css(RGB_OF.F)));
     expect(smallFace(scan.root, 'G').map((s) => s.style.background)).toEqual(Array(9).fill(css(RGB_OF.F)));
-    expect(buttonNamed(scan.root, 'Take picture')!.disabled).toBe(true);
+    expect(off(buttonNamed(scan.root, 'Take picture')!)).toBe(true);
     expect(turnWords(scan.root)).toBe('Got it.');
     done();
     expect(badge(scan.root).hidden).toBe(true);
@@ -555,7 +565,7 @@ describe('scan screen turn guide', () => {
     close = scan.close;
     ORDER.forEach((face) => take(scan.root, face));
     expect(badge(scan.root).hidden).toBe(false);
-    expect(buttonNamed(scan.root, 'Take picture')!.disabled).toBe(true);
+    expect(off(buttonNamed(scan.root, 'Take picture')!)).toBe(true);
     expect(location.hash).toBe('');
     done();
     expect(location.hash).toBe('#/review');
@@ -580,7 +590,7 @@ describe('scan screen turn guide', () => {
     buttonNamed(scan.root, 'Use it anyway')!.click();
     expect(badge(scan.root).hidden).toBe(false);
     vi.advanceTimersByTime(LOCK);
-    expect(buttonNamed(scan.root, 'Take picture')!.disabled).toBe(true);
+    expect(off(buttonNamed(scan.root, 'Take picture')!)).toBe(true);
   });
 
   it('leaving the screen during "Got it!" fires no move to the color check later', () => {
@@ -639,7 +649,7 @@ describe('scan screen live check', () => {
   let close = () => {};
   const css = ([r, g, b]: RGB) => `rgb(${r}, ${g}, ${b})`;
   const HEX_RGB: Record<string, RGB> = { W: [255, 255, 255], B: [0, 81, 186], G: [0, 158, 96] };
-  const pill = (root: HTMLElement) => root.querySelector('.scan-pill')!.textContent;
+  const words = (root: HTMLElement) => root.querySelector('.scan-live')!.textContent;
   const ready = (root: HTMLElement) => root.querySelector('.scan-camera')!.classList.contains('ready');
   const ticks = (n: number) => vi.advanceTimersByTime(250 * n);
   const see = (rgb: RGB) => { t.live = Array(9).fill(rgb); };
@@ -673,10 +683,10 @@ describe('scan screen live check', () => {
     see(RGB_OF.F);
     ticks(1);
     expect(ready(root)).toBe(false);
-    expect(pill(root)).toBe('Fit the side inside the squares');
+    expect(words(root)).toBe('Fit the side in the squares');
     ticks(1);
     expect(ready(root)).toBe(true);
-    expect(pill(root)).toBe('Green side found. Take the picture.');
+    expect(words(root)).toBe('Green side found');
   });
 
   it('two unclear ticks put the plain words back', () => {
@@ -689,7 +699,7 @@ describe('scan screen live check', () => {
     expect(ready(root)).toBe(true);
     ticks(1);
     expect(ready(root)).toBe(false);
-    expect(pill(root)).toBe('Fit the side inside the squares');
+    expect(words(root)).toBe('Fit the side in the squares');
   });
 
   it('three ticks of another side say which side it sees; "Take picture" still checks the side as before', () => {
@@ -698,9 +708,9 @@ describe('scan screen live check', () => {
     vi.advanceTimersByTime(LOCK);
     see(RGB_OF.R);
     ticks(2);
-    expect(pill(root)).toBe('Fit the side inside the squares');
+    expect(words(root)).toBe('Fit the side in the squares');
     ticks(1);
-    expect(pill(root)).toBe('This is the red side. Show the green side.');
+    expect(words(root)).toBe('That looks like red');
     t.cells = Array(9).fill(RGB_OF.R);
     buttonNamed(root, 'Take picture')!.click();
     expect(root.querySelector('.scan-problem')!.textContent).toBe('That looks like the red side. Show the green-center side.');
@@ -712,7 +722,7 @@ describe('scan screen live check', () => {
     aim(root);
     see(RGB_OF.D);
     ticks(3);
-    expect(pill(root)).toBe('This may be the yellow side. Show the white side.');
+    expect(words(root)).toBe('That may be yellow');
   });
 
   it('a ready side hides the message from the last wrong picture, and the picture is taken', () => {
@@ -730,12 +740,39 @@ describe('scan screen live check', () => {
     expect(stored().samples.filter(Boolean)).toHaveLength(9);
   });
 
-  it('does nothing while the big cube shows', () => {
+  it('does nothing while the big cube shows, and the line under the camera stays empty', () => {
     const root = at(0);
     see(RGB_OF.F);
     ticks(4);
     expect(ready(root)).toBe(false);
-    expect(pill(root)).toBe('Fit the side inside the squares');
+    expect(words(root)).toBe('');
+  });
+
+  it('the live words change inside one line under the camera, not inside the camera', () => {
+    const root = at(0);
+    aim(root);
+    const line = root.querySelector('.scan-live')!;
+    expect(line.closest('.scan-camera')).toBeNull();
+    expect(line.textContent).toBe('Fit the side in the squares');
+    see(RGB_OF.F);
+    ticks(2);
+    expect(root.querySelector('.scan-live')).toBe(line);
+    expect(line.className).toBe('scan-live');
+    expect(line.textContent).toBe('Green side found');
+  });
+
+  it('a problem message takes the place of the live words while it shows', () => {
+    const root = at(0);
+    aim(root);
+    vi.advanceTimersByTime(LOCK);
+    t.cells = Array(9).fill(RGB_OF.R);
+    buttonNamed(root, 'Take picture')!.click();
+    expect(root.querySelector<HTMLElement>('.scan-live')!.hidden).toBe(true);
+    expect(root.querySelector('[role="alert"]')!.textContent).toBe('That looks like the red side. Show the green-center side.');
+    see(RGB_OF.F);
+    ticks(2);
+    expect(root.querySelector<HTMLElement>('.scan-live')!.hidden).toBe(false);
+    expect(root.querySelector<HTMLElement>('[role="alert"]')!.hidden).toBe(true);
   });
 
   it('the top band and the square by the hint show the top color for each side', () => {
@@ -752,7 +789,7 @@ describe('scan screen live check', () => {
 
   it('the live words are not read out as they change', () => {
     const root = at(0);
-    expect(root.querySelector('.scan-pill')!.closest('[aria-live]')).toBeNull();
+    expect(root.querySelector('.scan-live')!.closest('[aria-live]')).toBeNull();
   });
 
   it('after the camera fails, no live state shows and the ticks do not break', async () => {
@@ -762,5 +799,78 @@ describe('scan screen live check', () => {
     see(RGB_OF.F);
     ticks(4);
     expect(root.querySelector('.scan-camera.ready')).toBeNull();
+  });
+});
+
+describe('scan screen focus, camera start and stop, and screen on', () => {
+  let close = () => {};
+  beforeEach(() => {
+    localStorage.clear();
+    loadSession();
+    t.broken = false;
+    t.cells = null;
+    location.hash = '';
+  });
+  afterEach(() => close());
+
+  it('after a good picture, focus moves from "Take picture" to "I turned it" when the big cube shows', () => {
+    const scan = mount();
+    close = scan.close;
+    buttonNamed(scan.root, "I'm ready")!.click();
+    vi.advanceTimersByTime(LOCK);
+    const button = buttonNamed(scan.root, 'Take picture')!;
+    button.focus();
+    t.cells = Array(9).fill(RGB_OF.F);
+    button.click();
+    expect(document.activeElement).toBe(button);
+    done();
+    expect(document.activeElement).toBe(buttonNamed(scan.root, 'I turned it'));
+  });
+
+  it('after "I turned it", focus is on "Take picture" once it wakes up', () => {
+    const scan = mount();
+    close = scan.close;
+    take(scan.root, 'F');
+    done();
+    const turned = buttonNamed(scan.root, 'I turned it')!;
+    turned.focus();
+    turned.click();
+    expect(document.activeElement).toBe(buttonNamed(scan.root, 'Take picture'));
+    vi.advanceTimersByTime(LOCK);
+    expect(document.activeElement).toBe(buttonNamed(scan.root, 'Take picture'));
+  });
+
+  it('"Take picture" before the camera has a picture says the camera is starting, and saves nothing', () => {
+    const scan = mount();
+    close = scan.close;
+    buttonNamed(scan.root, "I'm ready")!.click();
+    vi.advanceTimersByTime(LOCK);
+    t.cells = null;
+    buttonNamed(scan.root, 'Take picture')!.click();
+    expect(scan.root.querySelector('[role="alert"]')!.textContent).toBe('The camera is starting. Try again in a moment.');
+    expect(scan.root.querySelector<HTMLElement>('[role="alert"]')!.hidden).toBe(false);
+    expect(stored()?.samples ?? null).toBeNull();
+  });
+
+  it('when the camera stops after two sides, the camera-failed state shows and the two sides stay saved', async () => {
+    const scan = mount();
+    close = scan.close;
+    await settle();
+    take(scan.root, 'F');
+    take(scan.root, 'R');
+    t.track.dispatchEvent(new Event('ended'));
+    expect(scan.root.textContent).toContain('The camera is not working here. You can type in the colors instead.');
+    loadSession();
+    expect(session.samples!.filter(Boolean)).toHaveLength(18);
+  });
+
+  it('keeps the screen on while the scan is open, and lets it dim on leaving', () => {
+    vi.mocked(keepScreenOn).mockClear();
+    letScreenDim.mockClear();
+    const scan = mount();
+    expect(keepScreenOn).toHaveBeenCalledTimes(1);
+    expect(letScreenDim).not.toHaveBeenCalled();
+    scan.close();
+    expect(letScreenDim).toHaveBeenCalledTimes(1);
   });
 });

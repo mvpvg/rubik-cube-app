@@ -6,13 +6,16 @@
 .scan-side:disabled { cursor: default; }
 .scan-side.now { outline: 3px solid var(--text); outline-offset: 2px; }
 
-/* The camera box takes the free space before the spacer does, and shrinks first on a short screen.
-   The camera is the biggest square that fits in it. */
-.scan-camera-box { flex: 100 1 0; min-height: 120px; max-height: 46dvh; container-type: size; display: flex; justify-content: center; }
+/* The camera's size comes first and the rest fits around it: a share of the small viewport height,
+   at least 240 px, and never wider than the column. 45svh keeps the camera at 240 px or more at
+   360x560 and 280 px or more at 360x640, with the main button still on screen. A shorter page scrolls. */
+.scan-camera-box { flex: none; container-type: inline-size; display: flex; justify-content: center; }
 .scan-camera {
+  --camera: min(100cqw, max(240px, 45svh));
   position: relative;
-  width: 100cqmin;
-  height: 100cqmin;
+  width: var(--camera);
+  height: var(--camera);
+  container-type: size;
   border-radius: 28px;
   overflow: hidden;
   background: var(--well);
@@ -43,30 +46,17 @@
   background: transparent;
   border: 2px solid rgba(0, 0, 0, 0.45);
 }
-.scan-pill {
-  position: absolute;
-  left: 50%;
-  bottom: 12px;
-  transform: translateX(-50%);
-  /* A fixed width, so new words do not make it jump. */
-  width: 90%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  text-align: center;
-  background: rgba(28, 29, 34, 0.85);
-  color: var(--text);
-  font-size: var(--text-s);
-  font-weight: 500;
-  padding: 8px 14px;
-  border-radius: 999px;
-}
+/* The live words under the camera. A fixed height, so new words never move the main button. */
+.scan-live { margin: 0; height: var(--tap); display: flex; align-items: center; justify-content: center; text-align: center; font-size: var(--text-m); font-weight: 600; color: var(--text); }
+.scan-live[hidden] { display: none; }
 /* The top band sits in the 8% margin above the squares, so it never moves the grid. */
 .scan-band { position: absolute; top: 2%; left: 8%; right: 8%; height: 4%; border-radius: 999px; border: 2px solid rgba(0, 0, 0, 0.45); }
-/* "Side found": a thick border with a check mark and words, not color alone. Drawn over the video. */
+/* "Side found": a thick border with a check mark and words, not color alone. Drawn over the video.
+   The check sits on the bottom edge, in the margin under the squares. */
 .scan-camera.ready::after { content: ''; position: absolute; inset: 0; border: 6px solid var(--success); border-radius: inherit; pointer-events: none; }
-.scan-camera.ready .scan-pill { color: var(--success); }
+.scan-found { display: none; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 1; width: 20cqmin; height: 7cqmin; border-radius: 999px 999px 0 0; align-items: center; justify-content: center; background: var(--success); color: var(--on-accent); }
+.scan-found svg { width: 6cqmin; height: 6cqmin; }
+.scan-camera.ready .scan-found { display: flex; }
 .scan-guide {
   position: absolute;
   inset: 0;
@@ -136,10 +126,10 @@
 .scan-text { flex: 1 1 160px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .scan-hint { display: flex; align-items: center; gap: 10px; font-size: var(--text-m); color: var(--soft); }
 .scan-swatch { flex: none; width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--line); }
-.scan-problem { margin: 0; color: var(--text); }
+.scan-problem { margin: 0; min-height: var(--tap); padding: 4px 14px; line-height: 1.25; color: var(--text); }
 .scan-problem[hidden] { display: none; }
-.scan-take { min-height: var(--tap-take); font-size: var(--text-l); }
+.scan-take { font-size: var(--text-l); }
 .scan .btn[hidden] { display: none; }
 
-.scan { gap: 12px; }
+.scan { gap: 10px; }
 .scan .h1 { font-size: var(--text-l); }

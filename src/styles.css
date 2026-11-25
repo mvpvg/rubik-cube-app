@@ -21,7 +21,7 @@
   /* Edges that must stand out at least 3:1 from the background, the panels and the wells. */
   --line: #7A7F8C;
   /* Sizes for every screen: no text under 16 px, instructions at 20 px, every control at least 48 px tall,
-     main buttons 64 px, and "Take picture" 80 px. */
+     and main buttons 64 px. */
   --text-s: 16px;
   --text-m: 18px;
   --text-say: 20px;
@@ -30,7 +30,6 @@
   --text-big: 36px;
   --tap: 48px;
   --tap-main: 64px;
-  --tap-take: 80px;
   --tap-gap: 8px;
   --radius-l: 24px;
   --radius-m: 18px;
@@ -87,7 +86,7 @@ button, .btn { font-family: var(--font); cursor: pointer; }
 .btn:active { transform: scale(0.97); }
 .btn-primary { background: var(--accent); color: var(--on-accent); font-weight: 800; }
 .btn-ghost { background: transparent; color: var(--text); border-color: var(--line); }
-.btn[disabled] { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; transform: none; }
 .btn-wide { width: 100%; }
 .link { min-height: var(--tap); color: var(--accent); font-size: var(--text-s); font-weight: 500; text-align: center; background: none; border: none; padding: 12px; }
 
