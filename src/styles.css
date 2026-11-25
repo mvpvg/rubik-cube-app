@@ -16,6 +16,8 @@
   --blue: #0051BA;
   /* A cube square not scanned yet: apart from the black cube body and the dark panels. */
   --blank: #5C606B;
+  /* "Got it" and "side found": bright, so it does not read as the cube's own green. */
+  --success: #4ADE80;
   /* Edges that must stand out at least 3:1 from the background, the panels and the wells. */
   --line: #7A7F8C;
   /* Sizes for every screen: no text under 16 px, instructions at 20 px, every control at least 48 px tall,

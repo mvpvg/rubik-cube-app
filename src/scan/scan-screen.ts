@@ -12,6 +12,8 @@ import { rgbCss } from './sample';
 import { turnPicture } from './turn-picture';
 
 const PREVIEW_MS = 250;
+const BEAT_MS = 1000; // how long "Got it!" shows after a picture
+const LOCK_MS = 600; // "Take picture" waits this long after "I turned it", so a double tap takes no picture
 const REPLACE_WORDS = { question: 'Start over with this picture? Your saved cube will be deleted.', keep: 'Keep my cube', drop: 'Delete and start over' };
 
 let agreed = false;
@@ -42,11 +44,16 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   const video = h('video', { class: 'scan-video', playsinline: true, muted: true, autoplay: true });
   const chips = Array.from({ length: 9 }, () => h('span', { class: 'scan-chip' }));
   const grid = h('div', { class: 'scan-grid' }, ...chips.map((chip) => h('div', { class: 'scan-cell' }, chip)));
-  const camera = h('div', { class: 'scan-camera' }, video, grid, h('div', { class: 'scan-pill' }, 'Fit the side inside the squares'));
+  // The big cube covers the camera between sides. The camera keeps running under it.
+  const big = turnPicture({ big: true });
+  const badge = h('div', { class: 'scan-gotit', hidden: true }, icon('check', 28), 'Got it!');
+  // The words beside the small cube say the same thing, so screen readers skip the big cube.
+  const guide = h('div', { class: 'scan-guide', 'aria-hidden': 'true', hidden: true }, badge, big.el);
+  const camera = h('div', { class: 'scan-camera' }, video, grid, h('div', { class: 'scan-pill' }, 'Fit the side inside the squares'), guide);
 
   const sides = STEPS.map((_, i) => h('button', { class: 'scan-side', onclick: () => { flow.retake(i); show(); } }));
   const count = h('span', { class: 'muted' });
-  const picture = turnPicture();
+  const picture = turnPicture({ again: () => { if (badge.hidden) openGuide(); } });
   const headline = h('h1', { class: 'h1' });
   const turn = h('p', { class: 'sub' });
   const hint = h('span');
@@ -58,6 +65,9 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   } }, 'Keep my old one');
   const anyway = h('button', { class: 'btn btn-ghost btn-wide', hidden: true, onclick: () => { flow.useAnyway(); next(); } }, 'Use it anyway');
   const take = h('button', { class: 'btn btn-primary btn-wide scan-take', onclick: capture }, icon('camera', 26), 'Take picture');
+  // Two buttons, not one with new words, so each keeps its own name.
+  const ready = h('button', { class: 'btn btn-primary btn-wide scan-take', hidden: true, onclick: closeGuide }, "I'm ready");
+  const turned = h('button', { class: 'btn btn-primary btn-wide scan-take', hidden: true, onclick: closeGuide }, 'I turned it');
 
   root.append(
     h('section', { class: 'screen scan' },
@@ -76,12 +86,21 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
         keepOld,
         anyway,
         take,
+        ready,
+        turned,
       ),
       oneSide ? null : h('button', { class: 'link', onclick: () => go('review', 'manual') }, 'Type in the colors instead'),
     ),
   );
 
+  let shown = -1; // the side the screen asked for last
+  let beat = 0;
+  let lock = 0;
+  let noCamera = false;
+
   function show(): void {
+    window.clearTimeout(beat);
+    badge.hidden = true;
     const step = flow.step;
     const name = COLOR_NAME[step.center];
     sides.forEach((side, i) => {
@@ -95,6 +114,8 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     });
     count.textContent = `${flow.index + 1} of ${STEPS.length}`;
     const { from, turns, words } = turnFor(flow.index, flow.inOrder);
+    picture.paint(flow.samples());
+    big.paint(flow.samples());
     picture.show(from, turns, step.center);
     headline.textContent = `Show the ${name} side`;
     turn.textContent = words;
@@ -102,6 +123,52 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     problem.hidden = true;
     anyway.hidden = true;
     keepOld.hidden = !flow.retaking;
+    if (flow.index !== shown) {
+      shown = flow.index;
+      openGuide();
+    }
+  }
+
+  // The big cube plays the turns to this side and waits for the child to say the turn is done.
+  function openGuide(): void {
+    if (noCamera) return;
+    const { from, turns } = turnFor(flow.index, flow.inOrder);
+    big.show(from, turns, flow.step.center);
+    guide.hidden = false;
+    window.clearTimeout(lock);
+    take.hidden = true;
+    ready.hidden = turns.length > 0;
+    turned.hidden = !ready.hidden;
+  }
+
+  function closeGuide(): void {
+    const focused = document.activeElement === ready || document.activeElement === turned;
+    guide.hidden = true;
+    big.stop();
+    ready.hidden = turned.hidden = true;
+    take.hidden = false;
+    take.disabled = true;
+    lock = window.setTimeout(() => {
+      take.disabled = false;
+      if (focused) take.focus();
+    }, LOCK_MS);
+  }
+
+  // The big cube shows the side just taken, in its colors, for a second; then the scan moves on.
+  function gotIt(then: () => void): void {
+    const step = STEPS[shown];
+    picture.paint(flow.samples());
+    big.paint(flow.samples());
+    big.show(step.hold, [], step.center);
+    guide.hidden = false;
+    badge.hidden = false;
+    turn.textContent = 'Got it.';
+    // A second tap on "Use it anyway" would save the picture again.
+    problem.hidden = anyway.hidden = keepOld.hidden = true;
+    ready.hidden = turned.hidden = true;
+    take.hidden = false;
+    take.disabled = true;
+    beat = window.setTimeout(then, BEAT_MS);
   }
 
   // Each accepted picture is saved. The sixth also runs the color match, in the same save, so the
@@ -112,7 +179,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
       // The other sides, and the child's fixes on them, stay as they are.
       Object.assign(session, mergeSide({ ...session, colors: session.colors! }, face, flow.samples().slice(face * 9, face * 9 + 9) as RGB[]));
       saveSession();
-      return toCheck();
+      return gotIt(toCheck);
     }
     if (started || noQuestion || !hasWorkToKeep()) return save();
     // The picture waits here, unsaved, until the child agrees to delete the old work.
@@ -135,8 +202,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
       started = true;
       startNewWork(step); // the old work is replaced here, at the first picture
     }
-    if (flow.done) go('review');
-    else show();
+    gotIt(flow.done ? () => go('review') : show);
   }
 
   function capture(): void {
@@ -150,6 +216,11 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   }
 
   function cameraFailed(): void {
+    noCamera = true;
+    window.clearTimeout(lock);
+    big.stop();
+    ready.hidden = turned.hidden = true;
+    take.hidden = false;
     take.disabled = true;
     camera.replaceChildren(oneSide
       ? h('div', { class: 'scan-nocam' },
@@ -181,7 +252,10 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
 
   return () => {
     stopped = true;
+    window.clearTimeout(beat);
+    window.clearTimeout(lock);
     picture.stop();
+    big.stop();
     window.clearInterval(timer);
     stopCamera(stream);
     video.srcObject = null;

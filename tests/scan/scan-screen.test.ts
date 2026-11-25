@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RGB } from '../../src/app/session';
-import { applyMoves, SOLVED, toColors, type Face } from '../../src/cube/facelets';
+import { applyMoves, SOLVED, toColors, type Color, type Face } from '../../src/cube/facelets';
 
 // The camera is faked: each "Take picture" sees whatever side the test puts in front of it.
 const t = vi.hoisted(() => ({ cells: null as RGB[] | null, broken: false }));
@@ -44,7 +44,14 @@ beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () { this.open = false; };
 });
-const settle = () => new Promise((r) => setTimeout(r));
+// Every test runs on fake time, so the waits for "Got it!" and the button lock take no real time.
+beforeEach(() => { vi.useFakeTimers(); });
+afterEach(() => { vi.useRealTimers(); });
+const settle = () => vi.advanceTimersByTimeAsync(0);
+// Long enough for "Got it!" to end, and for "Take picture" to wake up after "I turned it".
+const BEAT = 1500;
+const LOCK = 700;
+const done = () => vi.advanceTimersByTime(BEAT);
 
 // Answers the question about the old work, then lets the waiting picture land.
 async function answer(root: HTMLElement, name: 'Keep my cube' | 'Delete and start over'): Promise<void> {
@@ -52,9 +59,15 @@ async function answer(root: HTMLElement, name: 'Keep my cube' | 'Delete and star
   await settle();
 }
 
-function take(root: HTMLElement, face: Face): void {
-  t.cells = Array(9).fill(RGB_OF[face]);
-  [...root.querySelectorAll('button')].find((b) => b.textContent === 'Take picture')!.click();
+// Lets "Got it!" end, taps "I'm ready" or "I turned it" when the big cube shows, waits out the lock, and takes the picture.
+function take(root: HTMLElement, face: Face | RGB): void {
+  done();
+  (buttonNamed(root, 'I turned it') ?? buttonNamed(root, "I'm ready"))?.click();
+  vi.advanceTimersByTime(LOCK);
+  t.cells = Array(9).fill(typeof face === 'string' ? RGB_OF[face] : face);
+  const button = buttonNamed(root, 'Take picture')!;
+  expect(button.disabled).toBe(false);
+  button.click();
 }
 
 describe('scan screen saving', () => {
@@ -90,6 +103,7 @@ describe('scan screen saving', () => {
     expect(scan.root.querySelector('dialog')!.textContent).toContain('Your saved cube will be deleted.');
     await answer(scan.root, 'Delete and start over');
     expect(scan.root.querySelector('dialog')).toBeNull();
+    done();
     expect(headline(scan.root)).toBe('Show the red side');
     loadSession();
     expect(session.route).toBe('scan');
@@ -116,6 +130,7 @@ describe('scan screen saving', () => {
     expect(saved.samples.every(Boolean)).toBe(true);
     expect(saved.colors).toEqual(toColors(SOLVED));
     expect(saved.checkMe).toEqual([]);
+    done();
     expect(location.hash).toBe('#/review');
     expect(classify).toHaveBeenCalledTimes(1);
 
@@ -219,6 +234,8 @@ describe('scan screen, asking before the old work is deleted', () => {
 describe('scan screen Back', () => {
   const hashChange = () => new Promise((r) => window.addEventListener('hashchange', r, { once: true }));
   const app = () => document.getElementById('app')!;
+  // jsdom fires hashchange on a real timer.
+  beforeEach(() => { vi.useRealTimers(); });
   beforeAll(() => {
     // The scan as the first page the app opened on.
     history.replaceState(null, '', '#/scan');
@@ -300,8 +317,8 @@ describe('scan screen, taking a side again', () => {
     close = scan.close;
     ORDER.slice(0, 4).forEach((face) => take(scan.root, face));
     buttonNamed(scan.root, 'Red side, taken. Tap to take again')!.click();
-    t.cells = Array(9).fill([190, 35, 60]);
-    buttonNamed(scan.root, 'Take picture')!.click();
+    take(scan.root, [190, 35, 60]);
+    done();
     expect(headline(scan.root)).toBe('Show the white side');
     expect(stored().samples.slice(9, 18)).toEqual(Array(9).fill([190, 35, 60]));
     expect(stored().samples.filter(Boolean)).toHaveLength(36);
@@ -355,6 +372,7 @@ describe('scan screen, taking a side again', () => {
       const scan = mount('R');
       close = scan.close;
       take(scan.root, 'R');
+      done();
       expect(location.hash).toBe('#/review/R');
       loadSession();
       expect(session.route).toBe('review');
@@ -380,5 +398,214 @@ describe('scan screen, taking a side again', () => {
       close = mount('R').close;
       expect(location.hash).toBe('#/home');
     });
+  });
+});
+
+describe('scan screen turn guide', () => {
+  let close = () => {};
+  const css = ([r, g, b]: RGB) => `rgb(${r}, ${g}, ${b})`;
+  const guide = (root: HTMLElement) => root.querySelector<HTMLElement>('.scan-guide')!;
+  const badge = (root: HTMLElement) => root.querySelector<HTMLElement>('.scan-gotit')!;
+  const bigFace = (root: HTMLElement, color: Color) => [...guide(root).querySelectorAll<HTMLElement>(`.turn-face[data-color="${color}"] > div`)];
+  const smallFace = (root: HTMLElement, color: Color) => [...root.querySelectorAll<HTMLElement>(`.turn-picture:not(.big) .turn-face[data-color="${color}"] > div`)];
+  const blank = (squares: HTMLElement[]) => squares.filter((s) => s.classList.contains('turn-blank')).length;
+  const arrows = (root: HTMLElement) => guide(root).querySelectorAll('.turn-arrow').length;
+  const turnWords = (root: HTMLElement) => root.querySelector('.scan-text p')!.textContent;
+  const SAVED = (faces: Face[]) => SOLVED.split('').map((f) => (faces.includes(f as Face) ? RGB_OF[f as Face] : null));
+
+  beforeEach(() => {
+    localStorage.clear();
+    loadSession();
+    t.broken = false;
+    location.hash = '';
+  });
+  afterEach(() => { close(); vi.unstubAllGlobals(); });
+
+  it('opens on the first side with "I\'m ready" in place of "Take picture"; tapping it closes the big cube', () => {
+    const scan = mount();
+    close = scan.close;
+    expect(guide(scan.root).hidden).toBe(false);
+    expect(guide(scan.root).getAttribute('aria-hidden')).toBe('true');
+    expect(buttonNamed(scan.root, 'Take picture')).toBeUndefined();
+    buttonNamed(scan.root, "I'm ready")!.click();
+    expect(guide(scan.root).hidden).toBe(true);
+    expect(buttonNamed(scan.root, "I'm ready")).toBeUndefined();
+    expect(buttonNamed(scan.root, 'Take picture')).toBeDefined();
+  });
+
+  it('"Take picture" stays off for a short time after the turn, so a double tap takes no picture', () => {
+    const scan = mount();
+    close = scan.close;
+    buttonNamed(scan.root, "I'm ready")!.click();
+    t.cells = Array(9).fill(RGB_OF.F);
+    const button = buttonNamed(scan.root, 'Take picture')!;
+    expect(button.disabled).toBe(true);
+    button.click();
+    expect(stored()?.samples ?? null).toBeNull();
+    vi.advanceTimersByTime(LOCK);
+    expect(button.disabled).toBe(false);
+    button.click();
+    expect(stored().samples.filter(Boolean)).toHaveLength(9);
+  });
+
+  it('an accepted picture is saved, then shows "Got it!" on the side just taken, then plays the turn to the next side', () => {
+    const scan = mount();
+    close = scan.close;
+    take(scan.root, 'F');
+    expect(stored().samples.filter(Boolean)).toHaveLength(9);
+    expect(guide(scan.root).hidden).toBe(false);
+    expect(badge(scan.root).hidden).toBe(false);
+    expect(bigFace(scan.root, 'G').map((s) => s.style.background)).toEqual(Array(9).fill(css(RGB_OF.F)));
+    expect(smallFace(scan.root, 'G').map((s) => s.style.background)).toEqual(Array(9).fill(css(RGB_OF.F)));
+    expect(buttonNamed(scan.root, 'Take picture')!.disabled).toBe(true);
+    expect(turnWords(scan.root)).toBe('Got it.');
+    done();
+    expect(badge(scan.root).hidden).toBe(true);
+    expect(headline(scan.root)).toBe('Show the red side');
+    expect(turnWords(scan.root)).toBe('Turn the cube left. Red comes to the front.');
+    expect(buttonNamed(scan.root, 'I turned it')).toBeDefined();
+    expect(buttonNamed(scan.root, 'Take picture')).toBeUndefined();
+    expect(arrows(scan.root)).toBe(1);
+  });
+
+  it('a picture of the wrong side does not open the big cube; the message and "Use it anyway" work as before', () => {
+    const scan = mount();
+    close = scan.close;
+    take(scan.root, 'R');
+    expect(guide(scan.root).hidden).toBe(true);
+    expect(scan.root.querySelector('.scan-problem')!.textContent).toBe('That looks like the red side. Show the green-center side.');
+    buttonNamed(scan.root, 'Take picture')!.click();
+    expect(guide(scan.root).hidden).toBe(true);
+    buttonNamed(scan.root, 'Use it anyway')!.click();
+    expect(stored().samples.filter(Boolean)).toHaveLength(9);
+    expect(badge(scan.root).hidden).toBe(false);
+    // The old message and its button go away, so a second tap cannot save the picture again.
+    expect(buttonNamed(scan.root, 'Use it anyway')).toBeUndefined();
+    expect(scan.root.querySelector<HTMLElement>('.scan-problem')!.hidden).toBe(true);
+  });
+
+  it('a reopened scan paints the saved sides on both cubes and plays the turns from the starting hold', () => {
+    session.samples = SAVED(['F', 'R', 'B']);
+    session.route = 'scan';
+    saveSession();
+    const scan = mount();
+    close = scan.close;
+    expect(headline(scan.root)).toBe('Show the orange side');
+    for (const color of ['G', 'R', 'B'] as Color[]) {
+      expect(blank(bigFace(scan.root, color))).toBe(0);
+      expect(blank(smallFace(scan.root, color))).toBe(0);
+    }
+    expect(blank(bigFace(scan.root, 'O'))).toBe(8);
+    expect(blank(smallFace(scan.root, 'W'))).toBe(8);
+    expect(guide(scan.root).hidden).toBe(false);
+    expect(buttonNamed(scan.root, 'I turned it')).toBeDefined();
+    expect(arrows(scan.root)).toBe(1);
+  });
+
+  it('a side taken again opens the big cube from the starting hold; "Keep my old one" opens it for the side the child was on', () => {
+    const scan = mount();
+    close = scan.close;
+    ORDER.slice(0, 4).forEach((face) => take(scan.root, face));
+    done();
+    buttonNamed(scan.root, 'I turned it')!.click();
+    buttonNamed(scan.root, 'Red side, taken. Tap to take again')!.click();
+    expect(guide(scan.root).hidden).toBe(false);
+    expect(arrows(scan.root)).toBe(1);
+    buttonNamed(scan.root, 'I turned it')!.click();
+    expect(guide(scan.root).hidden).toBe(true);
+    buttonNamed(scan.root, 'Keep my old one')!.click();
+    expect(headline(scan.root)).toBe('Show the white side');
+    expect(guide(scan.root).hidden).toBe(false);
+    expect(smallFace(scan.root, 'R').map((s) => s.style.background)).toEqual(Array(9).fill(css(RGB_OF.R)));
+  });
+
+  it('"Show me again" opens the big cube and plays the turns again', () => {
+    const scan = mount();
+    close = scan.close;
+    take(scan.root, 'F');
+    done();
+    buttonNamed(scan.root, 'I turned it')!.click();
+    expect(guide(scan.root).hidden).toBe(true);
+    buttonNamed(scan.root, 'Show me again')!.click();
+    expect(guide(scan.root).hidden).toBe(false);
+    expect(buttonNamed(scan.root, 'I turned it')).toBeDefined();
+  });
+
+  it('while the question about old work waits, the picture is not painted; "Keep my cube" leaves every side gray and does not open the big cube', async () => {
+    setCube(CUBE);
+    session.colors = toColors(CUBE);
+    session.route = 'learn';
+    setLearn(0, 0);
+    const scan = mount();
+    close = scan.close;
+    take(scan.root, 'F');
+    expect(blank(smallFace(scan.root, 'G'))).toBe(8);
+    expect(guide(scan.root).hidden).toBe(true);
+    await answer(scan.root, 'Keep my cube');
+    for (const color of ['W', 'G', 'R', 'B', 'O', 'Y'] as Color[]) expect(blank(smallFace(scan.root, color))).toBe(8);
+    expect(guide(scan.root).hidden).toBe(true);
+    expect(headline(scan.root)).toBe('Show the green side');
+  });
+
+  it('the sixth picture shows "Got it!" with the button off, then goes to the color check', () => {
+    const scan = mount();
+    close = scan.close;
+    ORDER.forEach((face) => take(scan.root, face));
+    expect(badge(scan.root).hidden).toBe(false);
+    expect(buttonNamed(scan.root, 'Take picture')!.disabled).toBe(true);
+    expect(location.hash).toBe('');
+    done();
+    expect(location.hash).toBe('#/review');
+  });
+
+  it('leaving the screen during "Got it!" fires no move to the color check later', () => {
+    const scan = mount();
+    ORDER.forEach((face) => take(scan.root, face));
+    scan.close();
+    done();
+    expect(location.hash).toBe('');
+  });
+
+  it('one side from the color check shows "Got it!", then goes back to the color check on that side', () => {
+    session.samples = SOLVED.split('').map((f) => RGB_OF[f as Face]);
+    session.colors = toColors(SOLVED);
+    session.route = 'review';
+    saveSession();
+    const scan = mount('R');
+    close = scan.close;
+    take(scan.root, 'R');
+    expect(badge(scan.root).hidden).toBe(false);
+    expect(location.hash).toBe('');
+    done();
+    expect(location.hash).toBe('#/review/R');
+  });
+
+  it('with motion turned off, the big cube shows the final pose and all arrows, and "Got it!" still lasts about a second', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    const scan = mount();
+    close = scan.close;
+    take(scan.root, 'F');
+    vi.advanceTimersByTime(500);
+    expect(badge(scan.root).hidden).toBe(false);
+    done();
+    expect(arrows(scan.root)).toBe(1);
+    expect(vi.getTimerCount()).toBe(1); // only the camera preview
+  });
+
+  it('when the camera fails, the big cube and its button go away and never come back', async () => {
+    session.samples = SAVED(['F', 'R']);
+    session.route = 'scan';
+    saveSession();
+    t.broken = true;
+    const scan = mount();
+    close = scan.close;
+    await settle();
+    expect(buttonNamed(scan.root, 'I turned it')).toBeUndefined();
+    expect(scan.root.querySelector('.scan-guide')).toBeNull();
+    buttonNamed(scan.root, 'Green side, taken. Tap to take again')!.click();
+    expect(buttonNamed(scan.root, 'I turned it')).toBeUndefined();
+    expect(buttonNamed(scan.root, "I'm ready")).toBeUndefined();
+    buttonNamed(scan.root, 'Type in the colors')!.click();
+    expect(location.hash).toBe('#/review/manual');
   });
 });

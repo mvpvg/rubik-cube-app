@@ -58,6 +58,32 @@
   padding: 8px 14px;
   border-radius: 999px;
 }
+.scan-guide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--well);
+}
+.scan-guide[hidden] { display: none; }
+.scan-gotit {
+  position: absolute;
+  top: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--success);
+  color: var(--on-accent);
+  font-size: var(--text-l);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.scan-gotit[hidden] { display: none; }
 .scan-nocam {
   position: absolute;
   inset: 0;
