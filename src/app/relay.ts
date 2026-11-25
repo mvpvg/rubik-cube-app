@@ -12,6 +12,26 @@ export function isRoom(text?: string): text is string {
   return /^cube-[a-z0-9]{26,}$/.test(text ?? '');
 }
 
+// The room from the QR link, for this tab only. It carries one send: the computer stops listening
+// after the first cube, so a later send would reach no one.
+export function keepRoom(room: string | null): void {
+  try {
+    if (room) sessionStorage.setItem('cube.room', room);
+    else sessionStorage.removeItem('cube.room');
+  } catch {
+    // Without it, the phone shares the link instead.
+  }
+}
+
+export function keptRoom(): string | null {
+  try {
+    const room = sessionStorage.getItem('cube.room');
+    return isRoom(room ?? '') ? room : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function send(room: string, text: string): Promise<void> {
   const stop = new AbortController();
   const timer = setTimeout(() => stop.abort(), 8000);

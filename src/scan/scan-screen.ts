@@ -1,6 +1,6 @@
 import './scan.css';
 import { readCubeLink } from '../app/cube-link';
-import { listen, newRoom } from '../app/relay';
+import { isRoom, keepRoom, listen, newRoom } from '../app/relay';
 import { go, goBack, type Cleanup } from '../app/router';
 import { hasWorkToKeep, saveSession, session, startNewWork, type RGB } from '../app/session';
 import { COLOR_HEX, COLOR_NAME, faceOf, TEXT_ON, type Color } from '../cube/facelets';
@@ -41,6 +41,9 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     go('home');
     return () => {};
   }
+  // `#/scan/<room>` is a phone opened from the QR code. Any other full scan is a fresh start, so an
+  // old room is dropped: its computer may have stopped listening.
+  if (!oneSide) keepRoom(isRoom(param) ? param : null);
   const toCheck = () => go('review', param);
   // A scan left part-way goes on from its saved sides, so its next picture replaces nothing.
   const continuing = !oneSide && session.route === 'scan';
