@@ -1,6 +1,6 @@
 import type { RGB } from '../app/session';
 import { CENTER_INDEX, COLOR_OF_FACE, FACES, type Color } from '../cube/facelets';
-import { labDist as dist, toLab } from './sample';
+import { labDist as dist, nominalLab, toLab } from './sample';
 
 export interface Classified {
   colors: Color[]; // 54, solver order
@@ -45,4 +45,19 @@ export function matchSquares(samples: (RGB | null)[], squares: number[], colors:
     left.set(color, left.get(color)! - 1);
   }
   return { close, missed: squares.filter((i) => colors[i] !== nearest.get(i)) };
+}
+
+// The colors read from one side's 9 samples alone, so they can be worked out again from saved samples.
+// The side's own middle is the reference for its color under that light; the sticker colors stand in for
+// the other five. A side kept with "Use it anyway" has an untrusted middle, so it uses sticker colors for all six.
+export function sideColors(samples: RGB[], asked: Color, anyway: boolean): Color[] {
+  const refs = FACES.map((face) => {
+    const color = COLOR_OF_FACE[face];
+    return { color, lab: color === asked && !anyway ? toLab(samples[4]) : nominalLab(color) };
+  });
+  return samples.map((rgb, i) => {
+    if (i === 4) return asked;
+    const lab = toLab(rgb);
+    return refs.reduce((a, b) => (dist(lab, b.lab) < dist(lab, a.lab) ? b : a)).color;
+  });
 }

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import Cube from 'cubejs';
 import type { RGB } from '../../src/app/session';
 import { applyMoves, CENTER_INDEX, COLOR_HEX, SOLVED, toColors, type Color } from '../../src/cube/facelets';
-import { classify } from '../../src/scan/classify';
+import { classify, sideColors } from '../../src/scan/classify';
+import { nearestColor } from '../../src/scan/sample';
 
 const hex = (c: Color): RGB => {
   const n = parseInt(COLOR_HEX[c].slice(1), 16);
@@ -72,5 +73,35 @@ describe('classify', () => {
     const { checkMe } = classify(samples);
     expect(checkMe).toContain(unsure);
     for (const i of CENTER_INDEX) expect(checkMe).not.toContain(i);
+  });
+});
+
+describe('sideColors', () => {
+  const side = (colors: Color[], light: (rgb: RGB) => RGB, seed: number) => photograph(colors, light, 12, seed);
+
+  it('reads a clean green side under room light as its true colors', () => {
+    const truth: Color[] = ['G', 'W', 'R', 'O', 'G', 'B', 'Y', 'G', 'R'];
+    expect(sideColors(side(truth, room, 3), 'G', false)).toEqual(truth);
+  });
+
+  it('reads yellowish white stickers as white when the middle is white', () => {
+    const truth: Color[] = ['W', 'W', 'Y', 'W', 'W', 'O', 'W', 'Y', 'W'];
+    const samples = side(truth, warmLamp, 5);
+    // Under this lamp the white stickers sit nearer the yellow sticker color than the white one.
+    expect(nearestColor(samples[0])).toBe('Y');
+    expect(sideColors(samples, 'W', false)).toEqual(truth);
+  });
+
+  it('uses the sticker colors for every color on a side kept with "Use it anyway"', () => {
+    const truth: Color[] = ['Y', 'G', 'G', 'G', 'G', 'Y', 'G', 'G', 'G'];
+    const samples = side(truth, room, 7);
+    samples[4] = hex('Y'); // glare made the green middle look yellow
+    expect(sideColors(samples, 'G', false)[0]).toBe('G'); // pulled toward the wrong middle
+    expect(sideColors(samples, 'G', true)).toEqual(truth);
+  });
+
+  it('gives the same colors for the same samples every time', () => {
+    const samples = side(['B', 'R', 'O', 'W', 'B', 'Y', 'G', 'O', 'R'], warmLamp, 9);
+    expect(sideColors(samples, 'B', false)).toEqual(sideColors([...samples], 'B', false));
   });
 });
