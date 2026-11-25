@@ -1,20 +1,20 @@
 import './scan.css';
 import { go, goBack, type Cleanup } from '../app/router';
 import { hasWorkToKeep, saveSession, session, startNewWork, type RGB } from '../app/session';
-import { COLOR_HEX, COLOR_NAME, type Color } from '../cube/facelets';
+import { COLOR_HEX, COLOR_NAME, TEXT_ON, type Color } from '../cube/facelets';
 import { mergeSide } from '../review/merge-side';
 import { confirmDelete } from '../ui/confirm';
 import { h, icon } from '../ui/dom';
 import { keepScreenOn } from '../ui/wake-lock';
 import { grabCells, startCamera, stopCamera } from './camera';
-import { classify } from './classify';
+import { classify, sideColors } from './classify';
 import { cap, ScanFlow, STEPS, turnFor } from './scan-flow';
 import { rgbCss } from './sample';
 import { turnPicture } from './turn-picture';
 
 const PREVIEW_MS = 250;
-const BEAT_MS = 1000; // how long "Got it!" shows after a picture
-const LOCK_MS = 600; // "Take picture" waits this long after "I turned it", so a double tap takes no picture
+// "Take picture" waits this long after "I turned it", and Next after a picture, so a double tap does nothing.
+const LOCK_MS = 600;
 // Equal preview ticks in a row before the camera box changes what it says.
 const TICKS = { ready: 2, none: 2, other: 3 };
 const PLAIN = 'Fit the side in the squares';
@@ -53,18 +53,19 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   const grid = h('div', { class: 'scan-grid' }, ...chips.map((chip) => h('div', { class: 'scan-cell' }, chip)));
   // The big cube covers the camera between sides. The camera keeps running under it.
   const big = turnPicture({ big: true });
-  const badge = h('div', { class: 'scan-gotit', hidden: true }, icon('check', 28), 'Got it!');
   // The words beside the small cube say the same thing, so screen readers skip the big cube.
-  const guide = h('div', { class: 'scan-guide', 'aria-hidden': 'true', hidden: true }, badge, big.el);
+  const guide = h('div', { class: 'scan-guide', 'aria-hidden': 'true', hidden: true }, big.el);
+  // The colors the app read from a picture, for the child to check before it is saved.
+  const panel = h('div', { class: 'scan-check', hidden: true });
   // The band shows which color goes on top. The hint says it in words, so screen readers skip it.
   const band = h('div', { class: 'scan-band', 'aria-hidden': 'true' });
   // "Side found" in the camera: a thick border and this check mark, not color alone.
   const found = h('span', { class: 'scan-found', 'aria-hidden': 'true' }, icon('check', 20));
-  const camera = h('div', { class: 'scan-camera' }, video, band, grid, found, guide);
+  const camera = h('div', { class: 'scan-camera' }, video, band, grid, found, guide, panel);
 
   const sides = STEPS.map((_, i) => h('button', { class: 'scan-side', onclick: () => { flow.retake(i); show(); } }));
   const count = h('span', { class: 'muted' });
-  const picture = turnPicture({ again: () => { if (badge.hidden) openGuide(); } });
+  const picture = turnPicture({ again: () => { if (panel.hidden) openGuide(); } });
   const headline = h('h1', { class: 'h1', 'aria-live': 'polite' });
   const turn = h('p', { class: 'sub' });
   const hint = h('span');
@@ -78,11 +79,13 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     flow.keepOld();
     show();
   } }, 'Keep my old one');
-  const anyway = h('button', { class: 'btn btn-ghost btn-wide', hidden: true, onclick: () => { flow.accept(flow.useAnyway()!); next(); } }, 'Use it anyway');
+  const anyway = h('button', { class: 'btn btn-ghost btn-wide', hidden: true, onclick: () => showCheck(flow.useAnyway()!, true) }, 'Use it anyway');
   const take = h('button', { class: 'btn btn-primary btn-wide scan-take', onclick: capture }, icon('camera', 26), 'Take picture');
   // Two buttons, not one with new words, so each keeps its own name.
   const ready = h('button', { class: 'btn btn-primary btn-wide scan-take', hidden: true, onclick: closeGuide }, "I'm ready");
   const turned = h('button', { class: 'btn btn-primary btn-wide scan-take', hidden: true, onclick: closeGuide }, 'I turned it');
+  const retry = h('button', { class: 'btn btn-ghost', hidden: true, onclick: show }, 'Take it again');
+  const nextButton = h('button', { class: 'btn btn-primary', hidden: true, onclick: confirmCheck }, 'Next');
 
   root.append(
     h('section', { class: 'screen scan' },
@@ -97,9 +100,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
         h('div', { class: 'scan-camera-box' }, camera),
         line,
         problem,
-        take,
-        ready,
-        turned,
+        h('div', { class: 'scan-main' }, take, ready, turned, retry, nextButton),
         // On a short phone everything from here may sit below the fold, so the camera keeps its size.
         h('div', { class: 'row' }, picture.el, h('div', { class: 'scan-text', 'aria-live': 'polite' }, turn)),
         h('div', { class: 'scan-hint' }, swatch, hint),
@@ -111,13 +112,13 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   );
 
   let shown = -1; // the side the screen asked for last
-  let beat = 0;
   let lock = 0;
   let noCamera = false;
+  let pending: RGB[] | null = null; // the picture on the check, not saved yet
+  let merged: ReturnType<typeof mergeSide> | null = null; // what Next saves for one side from the color check
 
+  // Also Take it again: the flow never saw the picture on the check, so showing its state drops it.
   function show(): void {
-    window.clearTimeout(beat);
-    badge.hidden = true;
     const step = flow.step;
     const name = COLOR_NAME[step.center];
     sides.forEach((side, i) => {
@@ -144,7 +145,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     if (flow.index !== shown) {
       shown = flow.index;
       openGuide();
-    }
+    } else if (!panel.hidden) closeGuide();
   }
 
   function say(message: string | null): void {
@@ -153,65 +154,83 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     line.hidden = !!message;
   }
 
-  // The three main buttons share one place, so one shows at a time, and focus moves with it.
-  // A button that waits is turned off with aria-disabled, not disabled, so it keeps focus: a disabled
-  // button drops focus to the page.
+  // The main buttons share one place, so one shows at a time (Next with Take it again beside it), and
+  // focus moves with it. A button that waits is turned off with aria-disabled, not disabled, so it keeps
+  // focus: a disabled button drops focus to the page.
   function mainButton(which: HTMLButtonElement, off = false): void {
-    const main = [take, ready, turned];
+    const main = [take, ready, turned, retry, nextButton];
     const focused = main.includes(document.activeElement as HTMLButtonElement);
-    for (const button of main) button.hidden = button !== which;
+    for (const button of main) button.hidden = button !== which && !(which === nextButton && button === retry);
     which.setAttribute('aria-disabled', String(off));
     if (focused) which.focus();
   }
 
   function openGuide(): void {
-    if (noCamera) return;
+    if (noCamera) return closeGuide();
     const { from, turns } = turnFor(flow.index, flow.inOrder);
     big.show(from, turns, flow.step.center);
     guide.hidden = false;
+    panel.hidden = true;
     setLive('none');
     window.clearTimeout(lock);
     mainButton(turns.length ? turned : ready);
   }
 
+  // Back to aiming, with nothing from the check left over.
   function closeGuide(): void {
-    guide.hidden = true;
+    guide.hidden = panel.hidden = true;
+    pending = merged = null;
     big.stop();
     setLive('none');
     mainButton(take, true);
-    lock = window.setTimeout(() => mainButton(take), LOCK_MS);
+    if (!noCamera) lock = window.setTimeout(() => mainButton(take), LOCK_MS);
   }
 
-  // The big cube shows the side just taken, in its colors, for a second; then the scan moves on.
-  function gotIt(then: () => void): void {
-    window.clearTimeout(lock);
-    // A side tap would cancel the move on; show() turns the taken sides back on.
+  // The 9 colors the app read, in the order the camera shows them. Nothing is saved until Next.
+  function showCheck(cells: RGB[], anyhow: boolean): void {
+    pending = cells;
+    let colors = sideColors(cells, flow.step.center, anyhow);
+    if (oneSide) {
+      // Taken again from the color check: show the colors the merge will save, counted with the other sides.
+      const face = Math.floor(STEPS[only].cells[0] / 9);
+      const own: RGB[] = [];
+      STEPS[only].cells.forEach((sticker, i) => { own[sticker - face * 9] = cells[i]; });
+      // The other sides, and the child's fixes on them, stay as they are.
+      merged = mergeSide({ ...session, colors: session.colors! }, face, own);
+      colors = STEPS[only].cells.map((sticker) => merged!.colors[sticker]!);
+    }
+    panel.replaceChildren(...colors.map((c, i) => h('div', {
+      class: 'scan-check-square', role: 'img', 'aria-label': `Square ${i + 1}, ${COLOR_NAME[c]}`,
+      style: `background:${COLOR_HEX[c]};color:${TEXT_ON[c]}`,
+    }, cap(COLOR_NAME[c]))));
+    panel.hidden = false;
+    // A side tap would drop the picture unseen; show() turns the taken sides back on.
     sides.forEach((side) => { side.disabled = true; });
-    const step = STEPS[shown];
-    picture.paint(flow.samples());
-    big.paint(flow.samples());
-    big.show(step.hold, [], step.center);
-    guide.hidden = false;
-    setLive('none');
-    badge.hidden = false;
-    turn.textContent = 'Got it.';
-    // A second tap on "Use it anyway" would save the picture again.
+    // A second tap on "Use it anyway" would check the picture again.
     say(null);
     anyway.hidden = keepOld.hidden = true;
-    mainButton(take, true);
-    beat = window.setTimeout(then, BEAT_MS);
+    setLive('none');
+    turn.textContent = 'Check the colors.';
+    window.clearTimeout(lock);
+    mainButton(nextButton, true);
+    lock = window.setTimeout(() => mainButton(nextButton), LOCK_MS);
   }
 
-  // Each accepted picture is saved. The sixth also runs the color match, in the same save, so the
+  function confirmCheck(): void {
+    if (nextButton.getAttribute('aria-disabled') === 'true' || !pending) return;
+    flow.accept(pending);
+    pending = null;
+    next();
+  }
+
+  // Each checked picture is saved. The sixth also runs the color match, in the same save, so the
   // color check only ever reads saved colors and a refresh cannot run the match twice.
   function next(): void {
     if (oneSide) {
-      const face = Math.floor(STEPS[only].cells[0] / 9);
-      // The other sides, and the child's fixes on them, stay as they are.
-      Object.assign(session, mergeSide({ ...session, colors: session.colors! }, face, flow.samples().slice(face * 9, face * 9 + 9) as RGB[]));
+      Object.assign(session, merged);
       saveSession();
       // In place of the scan, so Back from the color check does not reopen the camera.
-      return gotIt(() => go('review', param, { replace: true }));
+      return go('review', param, { replace: true });
     }
     if (started || noQuestion || !hasWorkToKeep()) return save();
     // The picture waits here, unsaved, until the child agrees to delete the old work.
@@ -234,7 +253,8 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
       started = true;
       startNewWork(step); // the old work is replaced here, at the first picture
     }
-    gotIt(flow.done ? () => go('review', undefined, { replace: true }) : show);
+    if (flow.done) go('review', undefined, { replace: true });
+    else show();
   }
 
   function capture(): void {
@@ -242,10 +262,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     const cells = grabCells(video, canvas, 300);
     if (!cells) return say('The camera is starting. Try again in a moment.');
     const result = flow.capture(cells);
-    if (result.ok) {
-      flow.accept(result.cells);
-      return next();
-    }
+    if (result.ok) return showCheck(result.cells, false);
     say(result.message);
     anyway.hidden = !result.canUseAnyway;
   }
@@ -256,7 +273,8 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     say(null);
     window.clearTimeout(lock);
     big.stop();
-    mainButton(take, true);
+    // A picture on the check can still be saved with Next.
+    mainButton(pending ? nextButton : take, !pending);
     camera.replaceChildren(oneSide
       ? h('div', { class: 'scan-nocam' },
         h('p', { class: 'sub' }, 'The camera is not working. Go back and fix the squares by hand.'),
@@ -286,6 +304,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   let live: Live = 'none'; // what the camera box says now
   let last: Live = 'none'; // what the last tick saw
   let streak = 0; // how many ticks in a row saw `last`
+  const aiming = () => guide.hidden && panel.hidden && !noCamera;
   function setLive(state: Live): void {
     live = state;
     streak = 0;
@@ -293,8 +312,8 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     if (state === 'ready') {
       line.textContent = `${cap(COLOR_NAME[flow.step.center])} side found`;
       say(null);
-    // Under the big cube, or with no camera, there are no squares to fit.
-    } else if (state === 'none') line.textContent = guide.hidden && !noCamera ? PLAIN : '';
+    // Under the big cube or the check, or with no camera, there are no squares to fit.
+    } else if (state === 'none') line.textContent = aiming() ? PLAIN : '';
     else line.textContent = `That ${MIX[state] === flow.step.center ? 'may be' : 'looks like'} ${COLOR_NAME[state]}`;
   }
   function check(cells: RGB[]): void {
@@ -311,7 +330,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     const cells = grabCells(video, previewCanvas, 150);
     if (!cells) return;
     cells.forEach((c, i) => { chips[i].style.background = rgbCss(c); });
-    if (guide.hidden && !noCamera) check(cells);
+    if (aiming()) check(cells);
   }, PREVIEW_MS);
 
   show();
@@ -320,7 +339,6 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
   return () => {
     stopped = true;
     letScreenDim();
-    window.clearTimeout(beat);
     window.clearTimeout(lock);
     picture.stop();
     big.stop();

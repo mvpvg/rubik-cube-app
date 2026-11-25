@@ -1,14 +1,13 @@
 import './review.css';
 import { go } from '../app/router';
 import { hasWorkToKeep, isFinished, saveSession, session, setCube, startNewWork } from '../app/session';
-import { CENTER_INDEX, COLOR_HEX, COLOR_NAME, FACES, COLOR_OF_FACE, FACE_OF_COLOR, faceOf, fromColors, toColors, type Color, type Face } from '../cube/facelets';
+import { CENTER_INDEX, COLOR_HEX, COLOR_NAME, FACES, COLOR_OF_FACE, FACE_OF_COLOR, faceOf, fromColors, TEXT_ON, toColors, type Color, type Face } from '../cube/facelets';
 import { validate } from '../cube/validate';
 import { confirmDelete } from '../ui/confirm';
 import { h, icon } from '../ui/dom';
 import { smartFill } from './smart-fill';
 
 const COLORS: Color[] = ['W', 'Y', 'R', 'O', 'G', 'B'];
-const TEXT_ON: Record<Color, string> = { W: '#1C1D22', Y: '#1C1D22', O: '#1C1D22', R: '#FFFFFF', G: '#FFFFFF', B: '#FFFFFF' };
 // Where each side sits in the flat cross-shaped map: [column, row].
 const REPLACE_WORDS = { question: 'Start over with new colors? Your saved cube will be deleted.', keep: 'Keep my cube', drop: 'Delete and start over' };
 const NET_SPOT: Record<Face, [number, number]> = { U: [2, 1], L: [1, 2], F: [2, 2], R: [3, 2], B: [4, 2], D: [2, 3] };
