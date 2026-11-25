@@ -90,6 +90,9 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
   const solveBtn = h('button', { class: 'btn btn-ghost', style: 'flex:1', onclick: () => finish('solve') }, 'Solve it');
   const retake = h('button', { class: 'btn btn-ghost', onclick: () => go('scan', COLOR_OF_FACE[FACES[face]]) }, icon('camera'), 'Take this side again');
   const learnBtn = h('button', { class: 'btn btn-primary', style: 'flex:1.3', onclick: () => finish('learn') }, 'Learn it');
+  const sendBtn = h('button', { class: 'btn btn-ghost btn-wide', onclick: send }, 'Send to computer');
+  const copied = h('p', { class: 'muted send-copied', role: 'status' });
+  const linkText = h('p', { class: 'note send-link', hidden: true });
 
   root.append(
     h('section', { class: 'screen review' },
@@ -108,6 +111,9 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
       help,
       h('div', { class: 'spacer' }),
       h('div', { class: 'row' }, solveBtn, learnBtn),
+      sendBtn,
+      copied,
+      linkText,
     ),
   );
 
@@ -133,6 +139,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
     }
     solveBtn.toggleAttribute('disabled', !ok);
     learnBtn.toggleAttribute('disabled', !ok);
+    sendBtn.toggleAttribute('disabled', !ok);
   }
 
   function render(): void {
@@ -186,6 +193,9 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
     auto.clear();
     colors[selected] = c;
     checkMe.delete(selected);
+    // A link already shown holds the old colors.
+    linkText.hidden = true;
+    copied.textContent = '';
     for (const f of smartFill(colors)) { colors[f.index] = f.color; auto.add(f.index); }
     // In typing mode, jump to the next empty square so filling in goes quickly.
     if (manual) {
@@ -217,6 +227,16 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
     session.colors = (colors as Color[]).slice();
     setCube(facelets);
     go(where);
+  }
+
+  // The cube goes to a computer as a link, with no server. The link always shows, so it can be typed if all else fails.
+  function send(): void {
+    const url = `${location.origin}${location.pathname}#/cube/${fromColors(colors as Color[])}`;
+    linkText.textContent = url;
+    linkText.hidden = false;
+    copied.textContent = '';
+    if (navigator.share) navigator.share({ url }).catch(() => {});
+    else navigator.clipboard?.writeText(url).then(() => { copied.textContent = 'Link copied'; }, () => {});
   }
 
   // Opening the color check on saved colors makes it the step "Keep going" comes back to,

@@ -53,7 +53,7 @@ const off = (button: HTMLButtonElement) => button.getAttribute('aria-disabled') 
 // jsdom has no modal dialog; the real one (Esc, the back gesture) is proven in the browser tests.
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
-  HTMLDialogElement.prototype.close = function () { this.open = false; };
+  HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new Event('close')); };
 });
 // Every test runs on fake time, so the button locks take no real time.
 beforeEach(() => { vi.useFakeTimers(); });
@@ -1046,5 +1046,54 @@ describe('scan screen focus, camera start and stop, and screen on', () => {
     expect(letScreenDim).not.toHaveBeenCalled();
     scan.close();
     expect(letScreenDim).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('scan screen, scan with your phone', () => {
+  let close = () => {};
+  beforeEach(() => {
+    localStorage.clear();
+    loadSession();
+    t.broken = false;
+  });
+  afterEach(() => { close(); vi.unstubAllGlobals(); t.broken = false; });
+  const pointer = (coarse: boolean) =>
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === '(any-pointer: coarse)' ? coarse : false }));
+
+  it('shows on a computer and not on a phone', () => {
+    pointer(false);
+    let scan = mount();
+    expect(buttonNamed(scan.root, 'Scan with your phone')).toBeDefined();
+    scan.close();
+    pointer(true);
+    scan = mount();
+    close = scan.close;
+    expect(buttonNamed(scan.root, 'Scan with your phone')).toBeUndefined();
+  });
+
+  it('shows on a phone too when the camera fails', async () => {
+    pointer(true);
+    t.broken = true;
+    const scan = mount();
+    close = scan.close;
+    await settle();
+    expect(buttonNamed(scan.root, 'Scan with your phone')).toBeDefined();
+  });
+
+  it('opens a panel with the QR code and the scan link, and Close gives focus back', async () => {
+    pointer(false);
+    const scan = mount();
+    close = scan.close;
+    const opener = buttonNamed(scan.root, 'Scan with your phone')!;
+    opener.focus();
+    opener.click();
+    await vi.waitFor(() => expect(scan.root.querySelector('dialog svg[aria-label]')).not.toBeNull());
+    const dialog = scan.root.querySelector('dialog')!;
+    expect(dialog.open).toBe(true);
+    expect(dialog.textContent).toContain(`${location.origin}${location.pathname}#/scan`);
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    buttonNamed(dialog, 'Close')!.click();
+    expect(dialog.open).toBe(false);
+    expect(document.activeElement).toBe(opener);
   });
 });

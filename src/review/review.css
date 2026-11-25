@@ -29,3 +29,6 @@
 .auto-legend .auto-dot { position: static; flex: none; }
 .review-help { margin: 0; font-size: var(--text-s); }
 .review-help:empty { display: none; }
+.send-link { margin: 0; overflow-wrap: anywhere; user-select: all; }
+.send-link[hidden] { display: none; }
+.send-copied { margin: 0; text-align: center; }

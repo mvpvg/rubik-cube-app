@@ -179,3 +179,22 @@ test('a finished scan can take the green side again from the color check and com
   await expect(page).toHaveURL(/#\/review\/G$/);
   await expect(page.locator('.zoom-title')).toHaveText('Green side');
 });
+
+test.describe('on a computer', () => {
+  test.use({ hasTouch: false, isMobile: false, viewport: { width: 1280, height: 800 } });
+
+  test('"Scan with your phone" shows a QR code and the scan link, and Esc closes it', async ({ page }) => {
+    await page.goto('/#/scan');
+    const opener = page.getByRole('button', { name: 'Scan with your phone' });
+    await opener.click();
+    const panel = page.getByRole('dialog', { name: 'Scan with your phone' });
+    await expect(panel.getByRole('img', { name: 'QR code that opens the scan on a phone' })).toBeVisible();
+    const url = new URL(page.url());
+    await expect(panel.getByText(`${url.origin}${url.pathname}#/scan`, { exact: true })).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Close' })).toBeFocused();
+    await page.screenshot({ path: 'test-results/phone-qr.png' });
+    await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
+    await expect(opener).toBeFocused();
+  });
+});

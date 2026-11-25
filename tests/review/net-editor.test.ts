@@ -1,8 +1,9 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import Cube from 'cubejs';
 import { isFinished, loadSession, saveSession, session, setCube, setLearn, setSolve, type RGB } from '../../src/app/session';
 import { applyMoves, CENTER_INDEX, COLOR_HEX, COLOR_NAME, invertMoves, SOLVED, toColors, type Color, type Face } from '../../src/cube/facelets';
 import { reviewScreen } from '../../src/review/net-editor';
+import { readCubeLink } from '../../src/app/cube-link';
 
 function mount(param?: string): HTMLElement {
   const root = document.createElement('main');
@@ -382,5 +383,58 @@ describe('review screen', () => {
     zoomSquares(root)[0].click();
     button(root, colors[18] === 'B' ? 'white' : 'blue').click();
     expect((root.querySelector('.review-help')?.textContent ?? '').length).toBeGreaterThan(10);
+  });
+});
+
+describe('send to computer', () => {
+  const state = applyMoves(SOLVED, "R U F' D2");
+  beforeEach(() => {
+    localStorage.clear();
+    loadSession();
+    session.colors = toColors(state);
+    saveSession();
+  });
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const linkText = (root: HTMLElement) => root.querySelector('.send-link')?.textContent ?? '';
+  const sharing = (share?: (data: ShareData) => Promise<void>, writeText?: (s: string) => Promise<void>) =>
+    vi.stubGlobal('navigator', { ...navigator, share, clipboard: writeText ? { writeText } : undefined });
+
+  it('is off while the colors do not make a real cube, and on once they do', () => {
+    const root = mount();
+    expect(button(root, 'Send to computer').disabled).toBe(false);
+    openSide(root, 'G');
+    zoomSquares(root)[0].click();
+    button(root, COLOR_NAME[zoomSquares(root)[0].textContent === 'B' ? 'W' : 'B']).click();
+    expect(button(root, 'Send to computer').disabled).toBe(true);
+  });
+
+  it('opens the share sheet with the cube link, and the link opens the same cube', async () => {
+    const share = vi.fn(() => Promise.resolve());
+    sharing(share);
+    const root = mount();
+    button(root, 'Send to computer').click();
+    await vi.waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+    const { url } = (share.mock.calls[0] as unknown as [ShareData])[0];
+    expect(url).toBe(`${location.origin}${location.pathname}#/cube/${state}`);
+    expect(linkText(root)).toBe(url);
+    expect(readCubeLink(url!.split('#/cube/')[1])).toBe(state);
+  });
+
+  it('copies the link when there is no share sheet, and says so', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    sharing(undefined, writeText);
+    const root = mount();
+    button(root, 'Send to computer').click();
+    await vi.waitFor(() => expect(root.textContent).toContain('Link copied'));
+    expect(writeText).toHaveBeenCalledWith(`${location.origin}${location.pathname}#/cube/${state}`);
+  });
+
+  it('still shows the link when sharing and copying both fail', async () => {
+    sharing(() => Promise.reject(new Error('no')), () => Promise.reject(new Error('no')));
+    const root = mount();
+    button(root, 'Send to computer').click();
+    await Promise.resolve();
+    expect(linkText(root)).toBe(`${location.origin}${location.pathname}#/cube/${state}`);
+    expect(root.textContent).not.toContain('Link copied');
   });
 });
