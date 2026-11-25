@@ -108,4 +108,82 @@ describe('relay', () => {
     expect(isRoom('G')).toBe(false);
     expect(isRoom(undefined)).toBe(false);
   });
+
+  describe('with VITE_RELAY=piping', () => {
+    // A piping server answers a waiting GET with whatever one POST to the same path sends.
+    const waitingGet = () => {
+      const gets: { url: string; signal: AbortSignal; answer: (text: string) => void; fail: () => void }[] = [];
+      vi.stubGlobal('fetch', vi.fn((url: string, init: RequestInit) => new Promise((resolve, reject) => {
+        init.signal!.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        gets.push({
+          url, signal: init.signal!,
+          answer: (text) => resolve({ ok: true, text: () => Promise.resolve(text) }),
+          fail: () => reject(new TypeError('offline')),
+        });
+      })));
+      return gets;
+    };
+
+    it('sends to the room on ppng.io, or on VITE_RELAY_URL when it is set', async () => {
+      vi.stubEnv('VITE_RELAY', 'piping');
+      const fetch = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('[INFO] Sent successfully!') });
+      vi.stubGlobal('fetch', fetch);
+      await send('cube-abc', CUBE);
+      expect(fetch).toHaveBeenCalledWith('https://ppng.io/cube-abc', expect.objectContaining({ method: 'POST', body: CUBE }));
+      vi.stubEnv('VITE_RELAY_URL', 'https://pipe.example');
+      await send('cube-abc', CUBE);
+      expect(fetch.mock.calls[1][0]).toBe('https://pipe.example/cube-abc');
+    });
+
+    it('a send finishes only when the computer took the text, and fails after 8 seconds without one', async () => {
+      vi.useFakeTimers();
+      vi.stubEnv('VITE_RELAY', 'piping');
+      // The server answers OK at once, then holds the body until a receiver takes the text.
+      vi.stubGlobal('fetch', vi.fn((_url: string, init: RequestInit) => Promise.resolve({
+        ok: true,
+        text: () => new Promise((_, reject) => {
+          init.signal!.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        }),
+      })));
+      const check = expect(send('cube-abc', CUBE)).rejects.toThrow();
+      await vi.advanceTimersByTimeAsync(8000);
+      await check;
+    });
+
+    it('waits on the room, passes each text on, and keeps waiting', async () => {
+      vi.stubEnv('VITE_RELAY', 'piping');
+      const gets = waitingGet();
+      const got = vi.fn();
+      listen('cube-abc', got);
+      await vi.waitFor(() => expect(gets).toHaveLength(1));
+      expect(gets[0].url).toBe('https://ppng.io/cube-abc');
+      gets[0].answer('hello');
+      await vi.waitFor(() => expect(gets).toHaveLength(2));
+      expect(got).toHaveBeenCalledWith('hello');
+    });
+
+    it('tries again after a network error', async () => {
+      vi.useFakeTimers();
+      vi.stubEnv('VITE_RELAY', 'piping');
+      const gets = waitingGet();
+      listen('cube-abc', () => {});
+      await vi.advanceTimersByTimeAsync(0);
+      gets[0].fail();
+      await vi.advanceTimersByTimeAsync(1999);
+      expect(gets).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(gets).toHaveLength(2);
+    });
+
+    it('stops waiting', async () => {
+      vi.stubEnv('VITE_RELAY', 'piping');
+      const gets = waitingGet();
+      const stop = listen('cube-abc', () => {});
+      await vi.waitFor(() => expect(gets).toHaveLength(1));
+      stop();
+      expect(gets[0].signal.aborted).toBe(true);
+      await new Promise((r) => setTimeout(r, 2100));
+      expect(gets).toHaveLength(1);
+    });
+  });
 });
