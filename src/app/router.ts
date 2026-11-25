@@ -9,9 +9,14 @@ export function register(name: string, screen: Screen): void {
   routes.set(name, screen);
 }
 
-export function go(name: string, param?: string): void {
+// `replace` swaps the current history entry for this screen, for a step Back should skip.
+// It keeps the entry's state, so goBack still knows whether an app screen came before it.
+export function go(name: string, param?: string, { replace = false } = {}): void {
   const hash = param ? `#/${name}/${param}` : `#/${name}`;
-  if (window.location.hash === hash) render();
+  if (replace) {
+    history.replaceState(history.state, '', hash);
+    render();
+  } else if (window.location.hash === hash) render();
   else window.location.hash = hash;
 }
 
@@ -28,11 +33,11 @@ function parse(): { name: string; param?: string } {
 }
 
 function render(): void {
+  const root = document.getElementById('app');
+  if (!root) return;
   // Each history entry remembers once whether an earlier entry is a screen of this app. A refresh keeps it.
   if (!history.state) history.replaceState({ cameFromApp: shown }, '');
   shown = true;
-  const root = document.getElementById('app');
-  if (!root) return;
   if (cleanup) cleanup();
   cleanup = undefined;
   const { name, param } = parse();

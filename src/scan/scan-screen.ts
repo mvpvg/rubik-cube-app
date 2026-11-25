@@ -210,7 +210,8 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
       // The other sides, and the child's fixes on them, stay as they are.
       Object.assign(session, mergeSide({ ...session, colors: session.colors! }, face, flow.samples().slice(face * 9, face * 9 + 9) as RGB[]));
       saveSession();
-      return gotIt(toCheck);
+      // In place of the scan, so Back from the color check does not reopen the camera.
+      return gotIt(() => go('review', param, { replace: true }));
     }
     if (started || noQuestion || !hasWorkToKeep()) return save();
     // The picture waits here, unsaved, until the child agrees to delete the old work.
@@ -233,7 +234,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
       started = true;
       startNewWork(step); // the old work is replaced here, at the first picture
     }
-    gotIt(flow.done ? () => go('review') : show);
+    gotIt(flow.done ? () => go('review', undefined, { replace: true }) : show);
   }
 
   function capture(): void {

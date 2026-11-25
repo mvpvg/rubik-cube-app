@@ -64,13 +64,15 @@ export function solveScreen(root: HTMLElement, param?: string): Cleanup | void {
   // Making a move current plays it from the cube before it, and locks the buttons until it ends,
   // so a fast double tap cannot skip a move unseen.
   function show(k: number): void {
+    // Taken before the redraw: the button the child pressed gets focus back when it unlocks.
+    const pressed = controls.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
     cur = k;
     setSolve(moves, k);
     update();
     if (k < moves.length) {
       locked = true;
       clearTimeout(unlock);
-      void player.playAt(k).then((ms) => { unlock = setTimeout(() => { locked = false; syncButtons(); }, ms); });
+      void player.playAt(k).then((ms) => { unlock = setTimeout(() => { locked = false; syncButtons(); pressed?.focus(); }, ms); });
     }
     syncButtons();
   }
@@ -91,7 +93,10 @@ export function solveScreen(root: HTMLElement, param?: string): Cleanup | void {
     }
     card.classList.remove('done-card');
     card.replaceChildren(counter, moveCard);
-    controls.replaceChildren(againBtn, backBtn, nextBtn);
+    // Putting the same buttons back would drop the keyboard focus.
+    if ([againBtn, backBtn, nextBtn].some((b, i) => controls.children[i] !== b) || controls.children.length !== 3) {
+      controls.replaceChildren(againBtn, backBtn, nextBtn);
+    }
     const move = moves[cur];
     counter.textContent = `Move ${cur + 1} of ${total}`;
     bigMove.textContent = prettyMove(move);

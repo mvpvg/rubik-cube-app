@@ -27,7 +27,9 @@ export default defineConfig({
   plugins: [
     cubejsThisFix(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // No prompt is shown: a new version waits until every app window has closed,
+      // so an open app keeps the cached files it started with (its 3D cube included).
+      registerType: 'prompt',
       includeAssets: ['icons/icon.svg'],
       manifest: {
         name: 'Cube Coach',

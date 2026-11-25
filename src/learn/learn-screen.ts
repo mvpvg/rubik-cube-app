@@ -98,8 +98,10 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
   let base: string[] | null = null; // moves from solved to the scanned cube, for the 3D player
   let locked = false; // while a move plays, so a fast double tap cannot skip a move unseen
   let unlock: ReturnType<typeof setTimeout> | undefined;
-  let backBtn: HTMLButtonElement | null = null;
-  let againBtn: HTMLButtonElement | null = null;
+  // One of each button for the whole screen, so a redraw keeps the keyboard focus on the pressed one.
+  const backBtn = h('button', { class: 'btn btn-ghost', onclick: back }, icon('back', 20), 'Back');
+  const againBtn = h('button', { class: 'btn btn-ghost btn-again', onclick: playCurrent }, icon('play', 20), 'Show again');
+  const nextBtn = h('button', { class: 'btn btn-primary', onclick: next }, 'Next move', icon('next', 20));
 
   function priorMoves(upTo: number): string[] {
     return plans.slice(0, upTo).flatMap((p) => p.subSteps.flatMap((s) => s.moves));
@@ -111,17 +113,18 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
 
   function syncButtons(): void {
     controls.querySelectorAll('button').forEach((b) => b.toggleAttribute('disabled', locked));
-    if (pos === 0 && stage === 0) backBtn?.setAttribute('disabled', '');
-    if (!base) againBtn?.setAttribute('disabled', '');
+    if (pos === 0 && stage === 0) backBtn.setAttribute('disabled', '');
+    if (!base) againBtn.setAttribute('disabled', '');
   }
 
   // The 3D cube rests after the move on the card: making a move current plays it from the cube
   // before it. Without the 3D cube the cards work alone.
   function playCurrent(): void {
     if (!base || stage >= plans.length || pos >= flatten(plans[stage]).length) return;
+    const pressed = controls.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
     locked = true;
     clearTimeout(unlock);
-    void player.playAt(pos).then((ms) => { unlock = setTimeout(() => { locked = false; syncButtons(); }, ms); });
+    void player.playAt(pos).then((ms) => { unlock = setTimeout(() => { locked = false; syncButtons(); pressed?.focus(); }, ms); });
     syncButtons();
   }
 
@@ -163,7 +166,6 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
     hold.replaceChildren(holdNoteFor(plan.startState, plan.hold));
     card.className = 'card';
 
-    backBtn = h('button', { class: 'btn btn-ghost', onclick: back }, icon('back', 20), 'Back');
     stepLabel.textContent = '';
 
     if (flat.length === 0 || pos >= flat.length) {
@@ -187,8 +189,10 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
       }, h('b', {}, prettyMove(m))))),
       h('p', { class: 'chip-words' }, moveWords(cur.move)),
     );
-    againBtn = h('button', { class: 'btn btn-ghost btn-again', onclick: playCurrent }, icon('play', 20), 'Show again');
-    controls.replaceChildren(againBtn, backBtn, h('button', { class: 'btn btn-primary', onclick: next }, 'Next move', icon('next', 20)));
+    // Putting the same buttons back would drop the keyboard focus.
+    if ([againBtn, backBtn, nextBtn].some((b, i) => controls.children[i] !== b) || controls.children.length !== 3) {
+      controls.replaceChildren(againBtn, backBtn, nextBtn);
+    }
     syncButtons();
   }
 

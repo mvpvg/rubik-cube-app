@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import Cube from 'cubejs';
-import { loadSession, saveSession, session, setCube, setLearn, type RGB } from '../../src/app/session';
-import { applyMoves, CENTER_INDEX, COLOR_HEX, COLOR_NAME, SOLVED, toColors, type Color, type Face } from '../../src/cube/facelets';
+import { isFinished, loadSession, saveSession, session, setCube, setLearn, setSolve, type RGB } from '../../src/app/session';
+import { applyMoves, CENTER_INDEX, COLOR_HEX, COLOR_NAME, invertMoves, SOLVED, toColors, type Color, type Face } from '../../src/cube/facelets';
 import { reviewScreen } from '../../src/review/net-editor';
 
 function mount(param?: string): HTMLElement {
@@ -299,6 +299,68 @@ describe('review screen', () => {
       const root = mount('O');
       expect(root.querySelector('.zoom-title')!.textContent).toBe('Orange side');
       expect(button(root, 'Show the orange side').getAttribute('aria-pressed')).toBe('true');
+    });
+  });
+
+  describe('opened with nothing saved', () => {
+    it('after a scan that started over, it goes back to the scan', () => {
+      session.route = 'scan';
+      const root = mount();
+      expect(location.hash).toBe('#/scan');
+      expect(root.querySelector('.net')).toBeNull();
+    });
+
+    it('with no scan, it goes Home', () => {
+      const root = mount();
+      expect(location.hash).toBe('#/home');
+      expect(root.querySelector('.net')).toBeNull();
+    });
+  });
+
+  it('opening the color check on a finished Solve leaves it finished', () => {
+    const cube = applyMoves(SOLVED, 'R U');
+    session.colors = toColors(cube);
+    setCube(cube);
+    session.route = 'solve';
+    setSolve(invertMoves(['R', 'U']), 2);
+    mount();
+    expect(isFinished()).toBe(true);
+  });
+
+  it('#/review/constructor shows the color check on the green side, with no error', () => {
+    session.colors = toColors(Cube.random().asString());
+    const root = mount('constructor');
+    expect(root.querySelector('.zoom-title')!.textContent).toBe('Green side');
+  });
+
+  describe('keyboard focus when the screen redraws', () => {
+    it('focus square 3 and pick it: focus stays on square 3', () => {
+      session.colors = toColors(Cube.random().asString());
+      const root = mount();
+      openSide(root, 'G');
+      zoomSquares(root)[2].focus();
+      zoomSquares(root)[2].click();
+      expect(document.activeElement).toBe(zoomSquares(root)[2]);
+    });
+
+    it('while typing, focus the white swatch and pick it: focus stays on the white swatch', () => {
+      const root = mount('manual');
+      openSide(root, 'W');
+      zoomSquares(root)[0].click();
+      button(root, 'white').focus();
+      button(root, 'white').click();
+      expect(document.activeElement).toBe(button(root, 'white'));
+    });
+
+    it('pick a color for square 3: the picker closes and focus goes back to square 3', async () => {
+      session.colors = toColors(Cube.random().asString());
+      const root = mount();
+      openSide(root, 'G');
+      zoomSquares(root)[2].click();
+      button(root, 'white').focus();
+      button(root, 'white').click();
+      await vi.waitFor(() => expect(root.querySelector('.swatch')).toBeNull());
+      expect(document.activeElement).toBe(zoomSquares(root)[2]);
     });
   });
 

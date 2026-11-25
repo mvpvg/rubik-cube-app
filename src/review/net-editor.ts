@@ -1,6 +1,6 @@
 import './review.css';
 import { go } from '../app/router';
-import { hasWorkToKeep, saveSession, session, setCube, startNewWork } from '../app/session';
+import { hasWorkToKeep, isFinished, saveSession, session, setCube, startNewWork } from '../app/session';
 import { CENTER_INDEX, COLOR_HEX, COLOR_NAME, FACES, COLOR_OF_FACE, FACE_OF_COLOR, faceOf, fromColors, toColors, type Color, type Face } from '../cube/facelets';
 import { validate } from '../cube/validate';
 import { confirmDelete } from '../ui/confirm';
@@ -58,6 +58,12 @@ function startingColors(manual: boolean): { colors: Slot[]; checkMe: number[]; f
 export function reviewScreen(root: HTMLElement, param?: string): void {
   const manual = param === 'manual';
   const start = startingColors(manual);
+  // Nothing to check: a scan that started over goes on, anything else goes Home.
+  // Replaced, so Back does not come here and bounce away again.
+  if (!manual && !start.saved) {
+    go(session.route === 'scan' ? 'scan' : 'home', undefined, { replace: true });
+    return;
+  }
   const colors = start.colors;
   const checkMe = new Set(start.checkMe);
   const auto = new Set(start.filled);
@@ -70,7 +76,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
   const firstFlagged = [...checkMe].sort((a, b) => a - b)[0];
   if (firstFlagged !== undefined) face = faceOf(firstFlagged);
   // Coming back from taking one side again, that side is the one to look at.
-  if (param && param in FACE_OF_COLOR) face = FACES.indexOf(FACE_OF_COLOR[param as Color]);
+  if (param && Object.hasOwn(FACE_OF_COLOR, param)) face = FACES.indexOf(FACE_OF_COLOR[param as Color]);
 
   const net = h('div', { class: 'net' });
   const zoomTitle = h('div', { class: 'zoom-title' });
@@ -131,6 +137,8 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
   }
 
   function render(): void {
+    // The redraw replaces every button, so focus moves to the new one with the same spoken name.
+    const focused = root.contains(document.activeElement) ? document.activeElement!.getAttribute('aria-label') : null;
     check();
     autoLegend.hidden = auto.size === 0;
     net.replaceChildren(...netSides(colors, (fi, place, stickers) => h('button', {
@@ -166,12 +174,14 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
         onclick: () => choose(c),
       }, c)));
     }
+    if (focused) [...root.querySelectorAll<HTMLElement>('[aria-label]')].find((el) => el.getAttribute('aria-label') === focused)?.focus();
   }
 
   async function choose(c: Color): Promise<void> {
     if (selected === null) return;
     // The pick waits here, unsaved, until the child agrees to delete the old work.
     if (fresh && hasWorkToKeep() && !(await confirmDelete(root, REPLACE_WORDS))) return;
+    const picked = selected;
     // Fills never outlive the pick they came from: clear them, set the pick, work them out again.
     for (const i of auto) colors[i] = null;
     auto.clear();
@@ -185,6 +195,8 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
     } else selected = null;
     keep();
     render();
+    // The picker closed with the pressed swatch in it, so focus goes back to the square it changed.
+    if (!root.contains(document.activeElement)) (zoom.children[picked - face * 9] as HTMLElement | undefined)?.focus();
   }
 
   // Every pick is saved, with the "check me" rings and the "filled in for you" dots.
@@ -208,8 +220,9 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
     go(where);
   }
 
-  // Opening the color check on saved colors makes it the step "Keep going" comes back to.
-  if (!manual && start.saved) {
+  // Opening the color check on saved colors makes it the step "Keep going" comes back to,
+  // unless the work is finished: looking at its colors does not bring it back.
+  if (!manual && !isFinished()) {
     session.route = 'review';
     saveSession();
   }
