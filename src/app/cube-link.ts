@@ -29,8 +29,10 @@ export function cubeLinkScreen(root: HTMLElement, param?: string): void {
     return;
   }
   const open = () => go('review', undefined, { replace: true });
-  if (session.facelets === cube) {
-    // The same cube: keep its Solve and Learn progress, and show the link's colors.
+  const linked = toColors(cube);
+  if (session.facelets === cube && (!session.colors || session.colors.every((c, i) => c === linked[i]))) {
+    // The same cube, with no squares fixed since: keep its Solve and Learn progress. Fixed squares
+    // are saved work, so they go through the question below.
     Object.assign(session, { colors: toColors(cube), checkMe: [], filled: [] });
     saveSession();
     return open();

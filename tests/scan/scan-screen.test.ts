@@ -558,6 +558,18 @@ describe('scan screen turn guide', () => {
     expect(off(button)).toBe(false);
   });
 
+  it('Take it again tapped before Next wakes does not bring Next back later', () => {
+    const scan = mount();
+    close = scan.close;
+    take(scan.root, 'F');
+    snap(scan.root, [190, 35, 60]);
+    vi.advanceTimersByTime(300);
+    buttonNamed(scan.root, 'Take it again')!.click();
+    vi.advanceTimersByTime(400);
+    expect(buttonNamed(scan.root, 'Next')).toBeUndefined();
+    expect(buttonNamed(scan.root, 'Take picture')).toBeDefined();
+  });
+
   it('a fast second tap on "Take picture" lands on Next while it waits, and saves nothing', () => {
     const scan = mount();
     close = scan.close;
@@ -1023,16 +1035,19 @@ describe('scan screen focus, camera start and stop, and screen on', () => {
     expect(session.samples!.filter(Boolean)).toHaveLength(18);
   });
 
-  it('when the camera stops while the colors show, the camera-failed state shows and Next still saves the side', async () => {
+  it('when the camera stops while the colors show, the colors stay until Next saves the side, then the camera-failed state shows', async () => {
     const scan = mount();
     close = scan.close;
     await settle();
     take(scan.root, 'F');
     snap(scan.root, 'R');
     t.track.dispatchEvent(new Event('ended'));
-    expect(scan.root.textContent).toContain('The camera is not working here. You can type in the colors instead.');
+    expect(scan.root.querySelectorAll('.scan-check-square')).toHaveLength(9);
+    expect(scan.root.textContent).not.toContain('The camera is not working here');
+    expect(buttonNamed(scan.root, 'Take it again')).toBeUndefined();
     vi.advanceTimersByTime(LOCK);
     buttonNamed(scan.root, 'Next')!.click();
+    expect(scan.root.textContent).toContain('The camera is not working here. You can type in the colors instead.');
     expect(stored().samples.filter(Boolean)).toHaveLength(18);
     expect(buttonNamed(scan.root, 'I turned it')).toBeUndefined();
     expect(off(buttonNamed(scan.root, 'Take picture')!)).toBe(true);

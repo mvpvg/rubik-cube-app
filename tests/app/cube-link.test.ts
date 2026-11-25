@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { register, start } from '../../src/app/router';
-import { clearAll, loadSession, session, setCube, setSolve } from '../../src/app/session';
+import { clearAll, loadSession, saveSession, session, setCube, setSolve } from '../../src/app/session';
 import { cubeLinkScreen } from '../../src/app/cube-link';
 import { applyMoves, CENTER_INDEX, CORNER_SLOTS, invertMoves, SOLVED, toColors } from '../../src/cube/facelets';
 import { validate } from '../../src/cube/validate';
@@ -141,6 +141,21 @@ describe('cube link', () => {
     expect(session.solve).toEqual({ cube: CUBE, moves: invertMoves(SCRAMBLE), position: 2 });
     loadSession();
     expect(session.solve?.position).toBe(2);
+  });
+
+  it('the same cube with squares fixed since asks first, and "Keep my cube" keeps the fixes', async () => {
+    setCube(CUBE);
+    const fixed = toColors(CUBE);
+    fixed[0] = fixed[0] === 'W' ? 'Y' : 'W';
+    session.colors = fixed;
+    session.route = 'review';
+    saveSession();
+    const before = saved();
+    await open(CUBE);
+    expect(app().querySelector('dialog')?.textContent).toContain('Your saved cube will be deleted.');
+    button('Keep my cube')!.click();
+    await tick();
+    expect(saved()).toBe(before);
   });
 
   it('a refresh after the import does not ask or import again', async () => {
