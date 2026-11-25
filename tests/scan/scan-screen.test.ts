@@ -304,6 +304,7 @@ describe('scan screen, taking a side again', () => {
     close = scan.close;
     ORDER.slice(0, 4).forEach((face) => take(scan.root, face));
     const before = stored().samples;
+    done();
     expect(buttonNamed(scan.root, 'Keep my old one')).toBeUndefined();
     expect(buttonNamed(scan.root, 'Yellow side, not taken yet')!.disabled).toBe(true);
     buttonNamed(scan.root, 'Red side, taken. Tap to take again')!.click();
@@ -317,6 +318,7 @@ describe('scan screen, taking a side again', () => {
     const scan = mount();
     close = scan.close;
     ORDER.slice(0, 4).forEach((face) => take(scan.root, face));
+    done();
     buttonNamed(scan.root, 'Red side, taken. Tap to take again')!.click();
     take(scan.root, [190, 35, 60]);
     done();
@@ -557,6 +559,28 @@ describe('scan screen turn guide', () => {
     expect(location.hash).toBe('');
     done();
     expect(location.hash).toBe('#/review');
+  });
+
+  it('a side tap during the last "Got it!" does nothing, and the scan still goes to the color check', () => {
+    const scan = mount();
+    close = scan.close;
+    ORDER.forEach((face) => take(scan.root, face));
+    scan.root.querySelector<HTMLButtonElement>('.scan-side')!.click();
+    done();
+    expect(location.hash).toBe('#/review');
+  });
+
+  it('"Take picture" stays off for the whole "Got it!" second, even when the button lock was still running', () => {
+    const scan = mount();
+    close = scan.close;
+    take(scan.root, 'R');
+    take(scan.root, 'R');
+    buttonNamed(scan.root, 'Show me again')!.click();
+    buttonNamed(scan.root, "I'm ready")!.click();
+    buttonNamed(scan.root, 'Use it anyway')!.click();
+    expect(badge(scan.root).hidden).toBe(false);
+    vi.advanceTimersByTime(LOCK);
+    expect(buttonNamed(scan.root, 'Take picture')!.disabled).toBe(true);
   });
 
   it('leaving the screen during "Got it!" fires no move to the color check later', () => {

@@ -13,13 +13,13 @@ import { turnPicture } from './turn-picture';
 
 const PREVIEW_MS = 250;
 const BEAT_MS = 1000; // how long "Got it!" shows after a picture
-const LOCK_MS = 600;
+const LOCK_MS = 600; // "Take picture" waits this long after "I turned it", so a double tap takes no picture
 // Equal preview ticks in a row before the camera box changes what it says.
 const TICKS = { ready: 2, none: 2, other: 3 };
 const PLAIN = 'Fit the side inside the squares';
 // Pairs the camera can mix up in poor light, so the words say "may be".
 const MIX: Partial<Record<Color, Color>> = { W: 'Y', Y: 'W', R: 'O', O: 'R' };
-type Live = 'ready' | 'none' | Color; // "Take picture" waits this long after "I turned it", so a double tap takes no picture
+type Live = 'ready' | 'none' | Color;
 const REPLACE_WORDS = { question: 'Start over with this picture? Your saved cube will be deleted.', keep: 'Keep my cube', drop: 'Delete and start over' };
 
 let agreed = false;
@@ -170,6 +170,9 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
 
   // The big cube shows the side just taken, in its colors, for a second; then the scan moves on.
   function gotIt(then: () => void): void {
+    window.clearTimeout(lock);
+    // A side tap would cancel the move on; show() turns the taken sides back on.
+    sides.forEach((side) => { side.disabled = true; });
     const step = STEPS[shown];
     picture.paint(flow.samples());
     big.paint(flow.samples());
@@ -266,7 +269,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     camera.classList.toggle('ready', state === 'ready');
     if (state === 'ready') {
       pill.replaceChildren(icon('check', 20), `${cap(asked)} side found. Take the picture.`);
-      problem.hidden = anyway.hidden = true;
+      problem.hidden = true;
     } else if (state === 'none') pill.textContent = PLAIN;
     else pill.textContent = `This ${MIX[state] === flow.step.center ? 'may be' : 'is'} the ${COLOR_NAME[state]} side. Show the ${asked} side.`;
   }
