@@ -1,4 +1,5 @@
 import './learn.css';
+import { exitButton } from '../app/exit';
 import { go, type Cleanup } from '../app/router';
 import { session, setLearn } from '../app/session';
 import { applyMoves, invertMoves, toColors } from '../cube/facelets';
@@ -80,6 +81,7 @@ export function learnScreen(root: HTMLElement, param?: string): Cleanup | void {
           h('button', { class: 'top-btn', 'aria-label': 'Back to checking colors', onclick: () => go('review') }, icon('back'), 'Back'),
           h('button', { class: 'link', style: 'padding:8px', onclick: () => go('moves') }, 'Moves'),
           h('button', { class: 'top-btn', 'aria-label': 'My cube looks different. Scan again', onclick: () => go('scan') }, icon('camera'), 'Scan again'),
+          exitButton(root),
         ),
         h('div', { class: 'stage-row' }, bar, stageLabel, stepLabel),
         title,

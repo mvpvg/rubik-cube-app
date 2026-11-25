@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The 3D player needs WebGL; these tests check the screen's own behavior.
 const calls = vi.hoisted(() => ({ playMove: [] as string[], highlight: [] as string[] }));
@@ -97,5 +97,30 @@ describe('practice screen: hints and stage mode', () => {
     button('U:').click();
     button('Reset').click();
     expect(root.querySelector('.practice-status')?.textContent).toMatch(/0 moves/);
+  });
+});
+
+describe('practice screen Exit', () => {
+  // jsdom has no modal dialog; Esc is proven in the browser tests.
+  beforeAll(() => {
+    HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+    HTMLDialogElement.prototype.close = function () { this.open = false; };
+  });
+  beforeEach(() => { localStorage.clear(); });
+  const exitWords = (root: HTMLElement) => {
+    [...root.querySelectorAll('button')].find((b) => b.textContent === 'Exit')!.click();
+    return root.querySelector('dialog .confirm-question')!.textContent;
+  };
+
+  it('after moves, says the practice cube will be lost', () => {
+    const root = mount();
+    byLabel(root, /^R: /).click();
+    byLabel(root, /^U: /).click();
+    byLabel(root, /^F: /).click();
+    expect(exitWords(root)).toContain('Your practice cube will be lost.');
+  });
+
+  it('with no moves and nothing saved, asks only "Go back Home?"', () => {
+    expect(exitWords(mount())).toBe('Go back Home?');
   });
 });

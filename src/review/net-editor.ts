@@ -1,4 +1,5 @@
 import './review.css';
+import { exitButton } from '../app/exit';
 import { keepRoom, keptRoom, send as sendToRoom } from '../app/relay';
 import { go } from '../app/router';
 import { hasWorkToKeep, isFinished, saveSession, session, setCube, startNewWork } from '../app/session';
@@ -100,6 +101,7 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
       h('div', { class: 'topbar' },
         h('button', { class: 'top-btn', 'aria-label': 'Back', onclick: () => go('home') }, icon('back'), 'Back'),
         h('button', { class: 'top-btn', 'aria-label': 'Scan again', onclick: () => go('scan') }, icon('camera'), 'Scan again'),
+        exitButton(root),
       ),
       h('div', { style: 'display:flex;flex-direction:column;gap:4px' },
         h('h1', {}, manual ? 'Type in the colors' : 'Check the colors'),

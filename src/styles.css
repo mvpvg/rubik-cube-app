@@ -95,6 +95,7 @@ button, .btn { font-family: var(--font); cursor: pointer; }
   background: var(--panel); color: var(--text); font-size: var(--text-s); font-weight: 700; white-space: nowrap;
   display: inline-flex; align-items: center; justify-content: center; gap: 4px;
 }
+.top-exit { margin-left: auto; } /* stays at the right end, also when the bar wraps */
 .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--tap-gap); min-height: var(--tap); }
 
 .card { background: var(--panel); border-radius: var(--radius-l); padding: 16px; display: flex; flex-direction: column; gap: 12px; }

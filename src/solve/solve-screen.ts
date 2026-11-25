@@ -1,3 +1,4 @@
+import { exitButton } from '../app/exit';
 import { go, type Cleanup } from '../app/router';
 import { saveSession, session, setSolve } from '../app/session';
 import { applyMoves, COLOR_HEX, invertMoves, toColors } from '../cube/facelets';
@@ -40,6 +41,7 @@ export function solveScreen(root: HTMLElement, param?: string): Cleanup | void {
     h('div', { class: 'topbar' },
       h('button', { class: 'top-btn', 'aria-label': 'Back to checking colors', onclick: () => go('review') }, icon('back'), 'Back'),
       h('button', { class: 'top-btn', 'aria-label': 'Scan again', onclick: () => go('scan') }, icon('camera'), 'Scan again'),
+      exitButton(root),
     ),
     title,
     holdNote(COLOR_HEX.W, COLOR_HEX.G, 'Hold your cube with white on top and green facing you'),

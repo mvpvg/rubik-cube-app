@@ -240,3 +240,13 @@ describe('learn screen', () => {
     });
   });
 });
+
+describe('learn screen Exit', () => {
+  it('has Exit at the end of the top bar', () => {
+    localStorage.clear();
+    loadSession();
+    session.facelets = Cube.random().asString();
+    const bar = [...mount().querySelectorAll('.topbar button')];
+    expect(bar.at(-1)!.textContent).toBe('Exit');
+  });
+});

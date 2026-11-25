@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The 3D player needs WebGL and the solver needs a worker; the mocks record what the screen asks for.
 const t = vi.hoisted(() => ({
@@ -239,5 +239,30 @@ describe('solve screen', () => {
       tap(root, 'No, scan it again');
       expect(location.hash).toBe('#/scan');
     });
+  });
+});
+
+describe('solve screen Exit', () => {
+  // jsdom has no modal dialog; Esc is proven in the browser tests.
+  beforeAll(() => {
+    HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+    HTMLDialogElement.prototype.close = function () { this.open = false; };
+  });
+  beforeEach(() => {
+    vi.useFakeTimers();
+    localStorage.clear();
+    loadSession();
+    session.facelets = 'scrambled';
+    session.route = 'solve';
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('on move 5, says the cube is saved and Home has "Keep going"', async () => {
+    const root = await mountSolved(['R', 'U', "F'", 'L', 'D', 'B']);
+    await moveEnds();
+    for (let i = 0; i < 4; i++) { tap(root, 'Next move'); await moveEnds(); }
+    expect(counter(root)).toContain('5');
+    [...root.querySelectorAll('.topbar button')].find((b) => b.textContent === 'Exit')!.dispatchEvent(new MouseEvent('click'));
+    expect(root.querySelector('dialog .confirm-question')!.textContent).toBe('Go back Home? Your cube is saved. Tap "Keep going" on Home to come back.');
   });
 });
