@@ -1,4 +1,5 @@
 import './review.css';
+import { keepRoom, keptRoom, send as sendToRoom } from '../app/relay';
 import { go } from '../app/router';
 import { hasWorkToKeep, isFinished, saveSession, session, setCube, startNewWork } from '../app/session';
 import { CENTER_INDEX, COLOR_HEX, COLOR_NAME, FACES, COLOR_OF_FACE, FACE_OF_COLOR, faceOf, fromColors, TEXT_ON, toColors, type Color, type Face } from '../cube/facelets';
@@ -229,9 +230,30 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
     go(where);
   }
 
-  // The cube goes to a computer as a link, with no server. The link always shows, so it can be typed if all else fails.
-  function send(): void {
-    const url = `${location.origin}${location.pathname}#/cube/${fromColors(colors as Color[])}`;
+  // A phone opened from the QR code sends the cube to the computer through the relay. Otherwise the
+  // cube goes as a link, which always shows, so it can be typed if all else fails.
+  let sending = false;
+  async function send(): Promise<void> {
+    if (sending) return;
+    const cube = fromColors(colors as Color[]);
+    const url = `${location.origin}${location.pathname}#/cube/${cube}`;
+    const room = keptRoom();
+    if (room) {
+      keepRoom(null);
+      sending = true;
+      copied.textContent = 'Sending…';
+      try {
+        await sendToRoom(room, cube);
+        copied.textContent = 'Sent! Look at your computer.';
+      } catch {
+        // Share and copy need a fresh tap on a phone, so they wait for the next one.
+        linkText.textContent = url;
+        linkText.hidden = false;
+        copied.textContent = 'Could not send. Tap Send to computer again to share the link.';
+      }
+      sending = false;
+      return;
+    }
     linkText.textContent = url;
     linkText.hidden = false;
     copied.textContent = '';

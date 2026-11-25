@@ -1132,6 +1132,43 @@ describe('scan screen, scan with your phone', () => {
     expect(document.activeElement).toBe(opener);
   });
 
+  describe('on the phone, the room from the QR code', () => {
+    const ROOM = 'cube-' + '0123456789abcdef'.repeat(2);
+    const room = () => sessionStorage.getItem('cube.room');
+    beforeEach(() => { sessionStorage.clear(); });
+    afterEach(() => { vi.restoreAllMocks(); sessionStorage.clear(); });
+
+    it('is kept for the send when the scan opens from the QR link', () => {
+      close = mount(ROOM).close;
+      expect(room()).toBe(ROOM);
+    });
+
+    it('is kept when one side is taken again', () => {
+      sessionStorage.setItem('cube.room', ROOM);
+      session.colors = toColors(CUBE);
+      close = mount('G').close;
+      expect(room()).toBe(ROOM);
+    });
+
+    it('is not taken from a link with any other shape', () => {
+      close = mount('x?email=a@b.c').close;
+      expect(room()).toBeNull();
+    });
+
+    it('is dropped when a full scan opens with no room', () => {
+      sessionStorage.setItem('cube.room', ROOM);
+      close = mount().close;
+      expect(room()).toBeNull();
+    });
+
+    it('the scan still opens when sessionStorage throws', () => {
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+      const scan = mount(ROOM);
+      close = scan.close;
+      expect(headline(scan.root)).toBe('Show the green side');
+    });
+  });
+
   describe('when the phone sends', () => {
     beforeEach(() => {
       relay.stop.mockClear();

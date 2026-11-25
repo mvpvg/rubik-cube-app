@@ -4,6 +4,9 @@ import { isFinished, loadSession, saveSession, session, setCube, setLearn, setSo
 import { applyMoves, CENTER_INDEX, COLOR_HEX, COLOR_NAME, invertMoves, SOLVED, toColors, type Color, type Face } from '../../src/cube/facelets';
 import { reviewScreen } from '../../src/review/net-editor';
 import { readCubeLink } from '../../src/app/cube-link';
+import { send as relaySend } from '../../src/app/relay';
+
+vi.mock('../../src/app/relay', async (real) => ({ ...(await real<typeof import('../../src/app/relay')>()), send: vi.fn() }));
 
 function mount(param?: string): HTMLElement {
   const root = document.createElement('main');
@@ -394,7 +397,12 @@ describe('send to computer', () => {
     session.colors = toColors(state);
     saveSession();
   });
-  afterEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.mocked(relaySend).mockReset();
+    vi.restoreAllMocks();
+    sessionStorage.clear();
+  });
   const linkText = (root: HTMLElement) => root.querySelector('.send-link')?.textContent ?? '';
   const sharing = (share?: (data: ShareData) => Promise<void>, writeText?: (s: string) => Promise<void>) =>
     vi.stubGlobal('navigator', { ...navigator, share, clipboard: writeText ? { writeText } : undefined });
@@ -429,6 +437,16 @@ describe('send to computer', () => {
     expect(writeText).toHaveBeenCalledWith(`${location.origin}${location.pathname}#/cube/${state}`);
   });
 
+  it('with no room from a QR code, shares the link and does not use the relay', async () => {
+    const share = vi.fn(() => Promise.resolve());
+    sharing(share);
+    sessionStorage.clear();
+    const root = mount();
+    button(root, 'Send to computer').click();
+    await vi.waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+    expect(relaySend).not.toHaveBeenCalled();
+  });
+
   it('still shows the link when sharing and copying both fail', async () => {
     sharing(() => Promise.reject(new Error('no')), () => Promise.reject(new Error('no')));
     const root = mount();
@@ -436,5 +454,79 @@ describe('send to computer', () => {
     await Promise.resolve();
     expect(linkText(root)).toBe(`${location.origin}${location.pathname}#/cube/${state}`);
     expect(root.textContent).not.toContain('Link copied');
+  });
+
+  describe('to the computer that showed the QR code', () => {
+    const ROOM = 'cube-' + '0123456789abcdef'.repeat(2);
+    const LINK = `${location.origin}${location.pathname}#/cube/${state}`;
+    const status = (root: HTMLElement) => root.querySelector('.send-copied')!.textContent;
+    beforeEach(() => { sessionStorage.setItem('cube.room', ROOM); });
+
+    it('sends only the 54 cube letters to the room, says so, and does not share', async () => {
+      const share = vi.fn(() => Promise.resolve());
+      sharing(share);
+      let done = () => {};
+      vi.mocked(relaySend).mockImplementation(() => new Promise<void>((r) => { done = r; }));
+      const root = mount();
+      button(root, 'Send to computer').click();
+      expect(status(root)).toBe('Sending…');
+      // A second tap while it sends does nothing.
+      button(root, 'Send to computer').click();
+      done();
+      await vi.waitFor(() => expect(status(root)).toBe('Sent! Look at your computer.'));
+      expect(relaySend).toHaveBeenCalledTimes(1);
+      expect(relaySend).toHaveBeenCalledWith(ROOM, state);
+      expect(share).not.toHaveBeenCalled();
+      expect(button(root, 'Send to computer')).toBeDefined();
+    });
+
+    it('a room carries one send: the next tap shares the link', async () => {
+      const share = vi.fn(() => Promise.resolve());
+      sharing(share);
+      vi.mocked(relaySend).mockResolvedValue();
+      const root = mount();
+      button(root, 'Send to computer').click();
+      await vi.waitFor(() => expect(status(root)).toBe('Sent! Look at your computer.'));
+      button(root, 'Send to computer').click();
+      expect(share).toHaveBeenCalledWith({ url: LINK });
+      expect(relaySend).toHaveBeenCalledTimes(1);
+      expect(linkText(root)).toBe(LINK);
+    });
+
+    it('when the send fails, shows the link and says to tap again, and the next tap shares', async () => {
+      const share = vi.fn(() => Promise.resolve());
+      sharing(share);
+      vi.mocked(relaySend).mockRejectedValue(new Error('offline'));
+      const root = mount();
+      button(root, 'Send to computer').click();
+      await vi.waitFor(() => expect(status(root)).toBe('Could not send. Tap Send to computer again to share the link.'));
+      expect(linkText(root)).toBe(LINK);
+      expect(root.querySelector<HTMLElement>('.send-link')!.hidden).toBe(false);
+      expect(share).not.toHaveBeenCalled();
+      button(root, 'Send to computer').click();
+      expect(share).toHaveBeenCalledWith({ url: LINK });
+    });
+
+    it('a color change after a send hides the old words and link', async () => {
+      vi.mocked(relaySend).mockRejectedValue(new Error('offline'));
+      const root = mount();
+      button(root, 'Send to computer').click();
+      await vi.waitFor(() => expect(linkText(root)).toBe(LINK));
+      openSide(root, 'G');
+      zoomSquares(root)[0].click();
+      button(root, COLOR_NAME[zoomSquares(root)[0].textContent === 'B' ? 'W' : 'B']).click();
+      expect(status(root)).toBe('');
+      expect(root.querySelector<HTMLElement>('.send-link')!.hidden).toBe(true);
+    });
+
+    it('when sessionStorage throws, uses the link', async () => {
+      const share = vi.fn(() => Promise.resolve());
+      sharing(share);
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+      const root = mount();
+      button(root, 'Send to computer').click();
+      expect(share).toHaveBeenCalledWith({ url: LINK });
+      expect(relaySend).not.toHaveBeenCalled();
+    });
   });
 });
