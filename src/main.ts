@@ -1,6 +1,7 @@
 import './styles.css';
 import { go, register, start } from './app/router';
 import { expireIfOld } from './app/session';
+import { cubeLinkScreen } from './app/cube-link';
 import { homeScreen } from './app/home';
 import { listenForInstall } from './app/install';
 import { movesScreen } from './help/moves-screen';
@@ -18,6 +19,7 @@ register('solve', solveScreen);
 register('learn', learnScreen);
 register('practice', practiceScreen);
 register('moves', movesScreen);
+register('cube', cubeLinkScreen);
 
 listenForInstall();
 warmUpSolver();
