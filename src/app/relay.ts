@@ -8,7 +8,7 @@ export function newRoom(): string {
 }
 
 // A room comes from a link, so only this exact shape is used: anything else could add relay options.
-export function isRoom(text?: string): text is string {
+export function isRoom(text?: string | null): text is string {
   return /^cube-[a-z0-9]{26,}$/.test(text ?? '');
 }
 
@@ -26,7 +26,7 @@ export function keepRoom(room: string | null): void {
 export function keptRoom(): string | null {
   try {
     const room = sessionStorage.getItem('cube.room');
-    return isRoom(room ?? '') ? room : null;
+    return isRoom(room) ? room : null;
   } catch {
     return null;
   }
