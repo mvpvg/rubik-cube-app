@@ -63,3 +63,13 @@ test('"Start a new cube" asks first: Esc keeps the work, "Delete and start over"
   await expect(page.getByRole('button', { name: 'Scan my cube' })).toBeVisible();
   await expect(page.getByText('Welcome back')).toHaveCount(0);
 });
+
+test('a cube link opened in a fresh page lands on the color check, and a refresh does not ask or import again', async ({ page }) => {
+  const cube = 'FLFLUFBDDRRUURRDBURLBRFBRDRFFFFDDDRBDBUFLBLUULULUBLLDB';
+  await page.goto(`/#/cube/${cube}`);
+  await expect(page).toHaveURL(/#\/review$/);
+  await expect(page.getByText('This cube works')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('This cube works')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
