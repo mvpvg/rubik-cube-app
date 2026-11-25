@@ -56,7 +56,6 @@ export function practiceScreen(root: HTMLElement, param?: string): Cleanup {
         h('div', { class: 'topbar' },
           h('button', { class: 'top-btn', 'aria-label': stage ? 'Back to Learn' : 'Back to home', onclick: () => go(stage ? 'learn' : 'home') }, icon('back'), 'Back'),
           h('button', { class: 'link', style: 'padding:8px', onclick: () => go('moves') }, 'Moves'),
-          // Practice moves are never saved.
           exitButton(root, () => (cube.moveCount ? 'Your practice cube will be lost.' : null)),
         ),
         // The title has its own row: with "Back" in words, a stage name no longer fits between the buttons.

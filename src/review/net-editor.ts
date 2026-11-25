@@ -239,6 +239,10 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
     if (sending) return;
     const cube = fromColors(colors as Color[]);
     const url = `${location.origin}${location.pathname}#/cube/${cube}`;
+    const showLink = () => {
+      linkText.textContent = url;
+      linkText.hidden = false;
+    };
     const room = keptRoom();
     if (room) {
       keepRoom(null);
@@ -249,15 +253,13 @@ export function reviewScreen(root: HTMLElement, param?: string): void {
         copied.textContent = 'Sent! Look at your computer.';
       } catch {
         // Share and copy need a fresh tap on a phone, so they wait for the next one.
-        linkText.textContent = url;
-        linkText.hidden = false;
+        showLink();
         copied.textContent = 'Could not send. Tap Send to computer again to share the link.';
       }
       sending = false;
       return;
     }
-    linkText.textContent = url;
-    linkText.hidden = false;
+    showLink();
     copied.textContent = '';
     if (navigator.share) navigator.share({ url }).catch(() => {});
     else navigator.clipboard?.writeText(url).then(() => { copied.textContent = 'Link copied'; }, () => {});

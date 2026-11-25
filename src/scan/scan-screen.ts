@@ -102,7 +102,6 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
         h('div', { class: 'topbar' },
           h('button', { class: 'top-btn', 'aria-label': 'Back', onclick: () => (oneSide ? toCheck() : goBack()) }, icon('back'), 'Back'),
           oneSide ? null : count,
-          // The picture on the check is not saved until Next.
           exitButton(root, () => (pending ? 'The picture you just took will be lost.' : null)),
         ),
         // One side from the color check has one job, so nothing here leads away from it.
@@ -310,7 +309,6 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
       h('p', { class: 'sub', role: 'status' }, 'Waiting for your phone…'),
       close,
     );
-    // Anything that is not a usable cube is ignored, and the window keeps waiting.
     stopWaiting = listen(room, (text) => {
       const cube = readCubeLink(text);
       if (!cube) return;
