@@ -132,6 +132,26 @@ describe('solve screen', () => {
     expect(counter(root)).toBe('Move 3 of 3');
   });
 
+  it('focus on Next move stays there while the move plays and after it', async () => {
+    const root = await mountSolved();
+    await moveEnds();
+    button(root, 'Next move').focus();
+    tap(root, 'Next move');
+    expect(document.activeElement).toBe(button(root, 'Next move'));
+    await moveEnds();
+    expect(document.activeElement).toBe(button(root, 'Next move'));
+  });
+
+  it('if the browser drops focus from the locked Next move, focus comes back once the move has played', async () => {
+    const root = await mountSolved();
+    await moveEnds();
+    button(root, 'Next move').focus();
+    tap(root, 'Next move');
+    button(root, 'Next move').blur(); // jsdom keeps focus on a disabled button; browsers may not
+    await moveEnds();
+    expect(document.activeElement).toBe(button(root, 'Next move'));
+  });
+
   describe('saved position', () => {
     // A real cube and the 6 moves that solve it, so the saved list passes the check on load.
     const SCRAMBLE = ['R', 'U', "F'", 'L', 'D2', 'B'];

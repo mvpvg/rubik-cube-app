@@ -156,6 +156,25 @@ describe('learn screen', () => {
     expect(root.querySelector('.chip.now')?.textContent).toBe(first);
   });
 
+  it('focus on Next move stays there when the card redraws', () => {
+    const root = mount();
+    buttonNamed(root, 'Next move')!.focus();
+    buttonNamed(root, 'Next move')!.click();
+    expect(document.activeElement).toBe(buttonNamed(root, 'Next move'));
+  });
+
+  it('if the browser drops focus from the locked Next move, focus comes back once the move has played', async () => {
+    vi.useFakeTimers();
+    const root = mount();
+    t.resolve(['R']);
+    await vi.advanceTimersByTimeAsync(1000);
+    buttonNamed(root, 'Next move')!.focus();
+    buttonNamed(root, 'Next move')!.click();
+    buttonNamed(root, 'Next move')!.blur(); // jsdom keeps focus on a disabled button; browsers may not
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(document.activeElement).toBe(buttonNamed(root, 'Next move'));
+  });
+
   it('the step card is read aloud when it changes', () => {
     expect(mount().querySelector('.card')?.getAttribute('aria-live')).toBe('polite');
   });

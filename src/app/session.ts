@@ -170,10 +170,11 @@ export function setLearn(stage: number, move: number): void {
 }
 
 // Solved work is not offered again, and replacing it needs no question.
-// Judged by the step the child is on, so Learn progress after a finished Solve is still kept.
+// Judged by the step the child is on, so Learn progress after a finished Solve is still kept,
+// and so are color fixes made after a scan that read as solved.
 export function isFinished(): boolean {
   const { facelets, solve, learn, route } = session;
-  return (facelets !== null && isSolved(facelets))
+  return (facelets !== null && isSolved(facelets) && !route?.startsWith('review'))
     || (route === 'solve' && solve !== null && solve.position === solve.moves.length)
     || (route === 'learn' && learn !== null && learn.stage >= STAGES.length);
 }

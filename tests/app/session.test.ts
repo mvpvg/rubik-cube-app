@@ -112,6 +112,17 @@ describe('saved session', () => {
     expect(hasWorkToKeep()).toBe(true);
   });
 
+  it('keeps color fixes made after a scan that read as solved as work to keep', () => {
+    setCube(SOLVED);
+    session.route = 'solve';
+    expect(isFinished()).toBe(true);
+    // A fix on the color check saves the new colors and makes the color check the step to come back to.
+    Object.assign(session, { colors: toColors(OTHER), route: 'review' });
+    saveSession();
+    expect(isFinished()).toBe(false);
+    expect(hasWorkToKeep()).toBe(true);
+  });
+
   it('counts one saved picture and nothing else as work to keep', () => {
     session.samples = samples(1);
     expect(isFinished()).toBe(false);

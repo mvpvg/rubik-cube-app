@@ -560,15 +560,17 @@ describe('scan screen turn guide', () => {
     expect(headline(scan.root)).toBe('Show the green side');
   });
 
-  it('the sixth picture shows "Got it!" with the button off, then goes to the color check', () => {
+  it('the sixth picture shows "Got it!" with the button off, then goes to the color check in place of the scan, so Back skips the camera', () => {
     const scan = mount();
     close = scan.close;
     ORDER.forEach((face) => take(scan.root, face));
     expect(badge(scan.root).hidden).toBe(false);
     expect(off(buttonNamed(scan.root, 'Take picture')!)).toBe(true);
     expect(location.hash).toBe('');
+    const entries = history.length;
     done();
     expect(location.hash).toBe('#/review');
+    expect(history.length).toBe(entries);
   });
 
   it('a side tap during the last "Got it!" does nothing, and the scan still goes to the color check', () => {
@@ -601,7 +603,7 @@ describe('scan screen turn guide', () => {
     expect(location.hash).toBe('');
   });
 
-  it('one side from the color check shows "Got it!", then goes back to the color check on that side', () => {
+  it('one side from the color check shows "Got it!", then goes back to the color check on that side in place of the scan', () => {
     session.samples = SOLVED.split('').map((f) => RGB_OF[f as Face]);
     session.colors = toColors(SOLVED);
     session.route = 'review';
@@ -611,8 +613,10 @@ describe('scan screen turn guide', () => {
     take(scan.root, 'R');
     expect(badge(scan.root).hidden).toBe(false);
     expect(location.hash).toBe('');
+    const entries = history.length;
     done();
     expect(location.hash).toBe('#/review/R');
+    expect(history.length).toBe(entries);
   });
 
   it('with motion turned off, the big cube shows the final pose and all arrows, and "Got it!" still lasts about a second', () => {
