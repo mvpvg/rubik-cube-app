@@ -48,8 +48,8 @@ export function warmUpSolver(): void {
   worker.postMessage({ id: -1, warm: true });
 }
 
-// Inside a promise, so a throw reaches the caller's .catch() instead of escaping.
-const solveHere = (state: string) => new Promise<string[]>((resolve) => resolve(solveFast(state)));
+// Async, so a throw reaches the caller's .catch() instead of escaping.
+const solveHere = async (state: string) => solveFast(state);
 
 // Solve off the main thread so the page never freezes while tables build.
 export function solveInWorker(state: string): Promise<string[]> {
