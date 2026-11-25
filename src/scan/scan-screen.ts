@@ -141,7 +141,11 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     }
   }
 
-  // The big cube plays the turns to this side and waits for the child to say the turn is done.
+  // The three main buttons share one place, so one shows at a time.
+  function mainButton(which: HTMLButtonElement): void {
+    for (const button of [take, ready, turned]) button.hidden = button !== which;
+  }
+
   function openGuide(): void {
     if (noCamera) return;
     const { from, turns } = turnFor(flow.index, flow.inOrder);
@@ -149,17 +153,14 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     guide.hidden = false;
     setLive('none');
     window.clearTimeout(lock);
-    take.hidden = true;
-    ready.hidden = turns.length > 0;
-    turned.hidden = !ready.hidden;
+    mainButton(turns.length ? turned : ready);
   }
 
   function closeGuide(): void {
     const focused = document.activeElement === ready || document.activeElement === turned;
     guide.hidden = true;
     big.stop();
-    ready.hidden = turned.hidden = true;
-    take.hidden = false;
+    mainButton(take);
     take.disabled = true;
     lock = window.setTimeout(() => {
       take.disabled = false;
@@ -179,8 +180,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     turn.textContent = 'Got it.';
     // A second tap on "Use it anyway" would save the picture again.
     problem.hidden = anyway.hidden = keepOld.hidden = true;
-    ready.hidden = turned.hidden = true;
-    take.hidden = false;
+    mainButton(take);
     take.disabled = true;
     beat = window.setTimeout(then, BEAT_MS);
   }
@@ -233,8 +233,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     noCamera = true;
     window.clearTimeout(lock);
     big.stop();
-    ready.hidden = turned.hidden = true;
-    take.hidden = false;
+    mainButton(take);
     take.disabled = true;
     camera.replaceChildren(oneSide
       ? h('div', { class: 'scan-nocam' },
@@ -257,26 +256,26 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
 
   // What the camera box says about the side it sees. It changes only after a short run of equal
   // ticks, so one odd frame does not make the words flicker.
-  let seen: Live = 'none';
-  let streak = 0;
+  let live: Live = 'none'; // what the camera box says now
+  let last: Live = 'none'; // what the last tick saw
+  let streak = 0; // how many ticks in a row saw `last`
   function setLive(state: Live): void {
-    seen = state;
+    live = state;
     streak = 0;
     const asked = COLOR_NAME[flow.step.center];
     camera.classList.toggle('ready', state === 'ready');
     if (state === 'ready') {
       pill.replaceChildren(icon('check', 20), `${cap(asked)} side found. Take the picture.`);
-      problem.hidden = anyway.hidden = true; // the last wrong picture no longer matters
+      problem.hidden = anyway.hidden = true;
     } else if (state === 'none') pill.textContent = PLAIN;
     else pill.textContent = `This ${MIX[state] === flow.step.center ? 'may be' : 'is'} the ${COLOR_NAME[state]} side. Show the ${asked} side.`;
   }
-  let last: Live = 'none';
   function check(cells: RGB[]): void {
     const look = flow.look(cells);
     const now: Live = look === 'match' ? 'ready' : look ?? 'none';
     streak = now === last ? streak + 1 : 1;
     last = now;
-    if (now !== seen && streak >= TICKS[now === 'ready' || now === 'none' ? now : 'other']) setLive(now);
+    if (now !== live && streak >= TICKS[now === 'ready' || now === 'none' ? now : 'other']) setLive(now);
   }
 
   // Live preview: tint each cell's chip with what the camera sees, and check the side while aiming.

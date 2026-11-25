@@ -50,7 +50,8 @@ const NOMINAL = (Object.keys(COLOR_HEX) as Color[]).map((color) => {
   return { color, lab: toLab([(n >> 16) & 255, (n >> 8) & 255, n & 255]) };
 });
 
-export const nominalLab = (color: Color) => NOMINAL.find((n) => n.color === color)!.lab;
+const NOMINAL_LAB = Object.fromEntries(NOMINAL.map((n) => [n.color, n.lab])) as Record<Color, Lab>;
+export const nominalLab = (color: Color) => NOMINAL_LAB[color];
 const hueOf = (lab: Lab) => (Math.atan2(lab[2], lab[1]) * 180) / Math.PI;
 const NOMINAL_HUE = (color: Color) => hueOf(nominalLab(color));
 // Halfway between the red and orange sticker hues.
