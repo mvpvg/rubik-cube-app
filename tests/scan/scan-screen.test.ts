@@ -157,6 +157,20 @@ describe('scan screen saving', () => {
     // The color check opens on the green side; the small map has no letters, the close-up card does.
     expect([...root.querySelectorAll('.zoom-sticker')].map((s) => s.textContent).join('')).toBe('GGGGGGGGG');
   });
+
+  it('a square the final match reads differently from that side\'s check is flagged, and squares that match are not', async () => {
+    const scan = mount();
+    close = scan.close;
+    // A clearly white square on the green side: the check shows white, but the cube already has 9 white squares.
+    const green: RGB[] = Array(9).fill(RGB_OF.F);
+    green[0] = [235, 250, 235];
+    take(scan.root, green);
+    await answer(scan.root, 'Delete and start over');
+    ORDER.slice(1).forEach((face) => take(scan.root, face));
+    const saved = stored();
+    expect(saved.colors[18]).toBe('G');
+    expect(saved.checkMe).toEqual([18]);
+  });
 });
 
 describe('scan screen, asking before the old work is deleted', () => {

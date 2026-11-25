@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import Cube from 'cubejs';
 import type { RGB } from '../../src/app/session';
-import { applyMoves, CENTER_INDEX, COLOR_HEX, SOLVED, toColors, type Color } from '../../src/cube/facelets';
-import { classify, sideColors } from '../../src/scan/classify';
+import { applyMoves, CENTER_INDEX, COLOR_HEX, CORNER_SLOTS, EDGE_SLOTS, fromColors, SOLVED, toColors, type Color } from '../../src/cube/facelets';
+import { validate } from '../../src/cube/validate';
+import { assign, classify, sideColors } from '../../src/scan/classify';
 import { nearestColor } from '../../src/scan/sample';
 
 const hex = (c: Color): RGB => {
@@ -73,6 +74,91 @@ describe('classify', () => {
     const { checkMe } = classify(samples);
     expect(checkMe).toContain(unsure);
     for (const i of CENTER_INDEX) expect(checkMe).not.toContain(i);
+  });
+});
+
+describe('classify, matching all squares at once', () => {
+  const CUBE = toColors(applyMoves(SOLVED, "R U2 F' L D B2 R' U F2 D' L2 B U' R2"));
+  const notMiddle = (c: Color) => CUBE.findIndex((x, i) => x === c && !CENTER_INDEX.includes(i));
+  // A sticker of color `c` on a piece slot, skipping slots that hold `but`.
+  const on = (slots: number[][], c: Color, but?: Color, skip: number[] = []) => {
+    const slot = slots.find((idx) => !idx.some((i) => skip.includes(i)) && idx.some((i) => CUBE[i] === c) && !idx.some((i) => CUBE[i] === but))!;
+    return { slot, i: slot.find((i) => CUBE[i] === c)! };
+  };
+  const works = (colors: Color[]) => validate(fromColors(colors)).ok;
+
+  it('gives the lowest total color difference where taking the nearest color first would strand a square', () => {
+    const samples = CUBE.map(hex);
+    const yellow = notMiddle('Y'), white = notMiddle('W');
+    samples[yellow] = [255, 248, 165]; // pale yellow, a little nearer the white middle
+    samples[white] = [30, 30, 30]; // white deep in shadow: far from white, and farther still from yellow
+    const { colors } = classify(samples);
+    expect(colors[yellow]).toBe('Y');
+    expect(colors[white]).toBe('W');
+  });
+
+  it('swaps back a red and an orange sticker the light swapped, when the corner as read cannot exist', () => {
+    const samples = CUBE.map(hex);
+    const red = on(CORNER_SLOTS, 'R', 'O');
+    const orange = on(CORNER_SLOTS, 'O', 'R', red.slot);
+    samples[red.i] = [226, 62, 38]; // just nearer the orange middle
+    samples[orange.i] = [224, 58, 42]; // just nearer the red middle
+    const { colors, checkMe } = classify(samples);
+    expect(colors).toEqual(CUBE);
+    expect(works(colors)).toBe(true);
+    expect(checkMe).toEqual(expect.arrayContaining([red.i, orange.i]));
+  });
+
+  it('swaps back a white and a yellow sticker on two edges that each show a piece the cube already has', () => {
+    const samples = CUBE.map(hex);
+    const white = on(EDGE_SLOTS, 'W');
+    const partner = CUBE[white.slot.find((i) => i !== white.i)!];
+    const yellow = on(EDGE_SLOTS, 'Y', partner);
+    samples[white.i] = [255, 244, 150]; // just nearer the yellow middle
+    samples[yellow.i] = [255, 248, 165]; // just nearer the white middle
+    const { colors } = classify(samples);
+    expect(colors).toEqual(CUBE);
+    expect(works(colors)).toBe(true);
+  });
+
+  it('changes nothing when no close-call swap makes the piece real, and the square stays flagged', () => {
+    const samples = CUBE.map(hex);
+    const red = on(CORNER_SLOTS, 'R', 'O');
+    const orange = on(CORNER_SLOTS, 'O', 'R', red.slot);
+    samples[red.i] = [226, 62, 38]; // just nearer the orange middle
+    samples[orange.i] = hex('R'); // clearly red, so not a close call
+    const { colors, checkMe } = classify(samples);
+    expect(colors[red.i]).toBe('O');
+    expect(colors[orange.i]).toBe('R');
+    expect(checkMe).toContain(red.i);
+    expect(works(colors)).toBe(false);
+  });
+
+  it('always gives exactly 9 of each color, even in poor light', () => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const { colors } = classify(photograph(seededCube(seed), warmLamp, 40, seed));
+      for (const c of ['W', 'Y', 'R', 'O', 'G', 'B'] as Color[]) expect(colors.filter((x) => x === c)).toHaveLength(9);
+    }
+  });
+});
+
+describe('assign', () => {
+  const best = (cost: number[][]): number => {
+    const go = (row: number, used: Set<number>): number => (row === cost.length ? 0
+      : Math.min(...cost[0].map((_, j) => (used.has(j) ? Infinity : cost[row][j] + go(row + 1, new Set([...used, j]))))));
+    return go(0, new Set());
+  };
+
+  it('finds the cheapest way to give each row its own column, for square and wide tables', () => {
+    const r = rng(42);
+    for (const [rows, cols] of [[1, 1], [4, 4], [5, 5], [3, 6], [5, 7]]) {
+      for (let t = 0; t < 20; t++) {
+        const cost = Array.from({ length: rows }, () => Array.from({ length: cols }, () => Math.floor(r() * 10)));
+        const got = assign(cost);
+        expect(new Set(got).size).toBe(rows);
+        expect(got.reduce((sum, j, i) => sum + cost[i][j], 0)).toBe(best(cost));
+      }
+    }
   });
 });
 
