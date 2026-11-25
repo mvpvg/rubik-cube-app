@@ -1,7 +1,7 @@
 import './scan.css';
 import { go, goBack, type Cleanup } from '../app/router';
 import { hasWorkToKeep, saveSession, session, startNewWork, type RGB } from '../app/session';
-import { COLOR_HEX, COLOR_NAME, TEXT_ON, type Color } from '../cube/facelets';
+import { COLOR_HEX, COLOR_NAME, faceOf, TEXT_ON, type Color } from '../cube/facelets';
 import { mergeSide } from '../review/merge-side';
 import { confirmDelete } from '../ui/confirm';
 import { h, icon } from '../ui/dom';
@@ -196,7 +196,7 @@ export function scanScreen(root: HTMLElement, param?: string): Cleanup {
     let colors = sideColors(cells, flow.step.center, anyhow);
     if (oneSide) {
       // Taken again from the color check: show the colors the merge will save, counted with the other sides.
-      const face = Math.floor(STEPS[only].cells[0] / 9);
+      const face = faceOf(STEPS[only].cells[0]);
       const own: RGB[] = [];
       STEPS[only].cells.forEach((sticker, i) => { own[sticker - face * 9] = cells[i]; });
       // The other sides, and the child's fixes on them, stay as they are.
